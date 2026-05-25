@@ -133,4 +133,31 @@ export function OffersFeed() {
                       >
                         {merchant}
                       </span>
-                   
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              {offer.source_url && (
+                <a
+                  href={offer.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-blue-600 hover:underline text-sm"
+                >
+                  View <ExternalLink className="h-4 w-4" />
+                </a>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      
+      {filteredOffers.length === 0 && (
+        <div className="py-12 text-center text-gray-500">
+          No offers found
+        </div>
+      )}
+    </div>
+  );
+}
