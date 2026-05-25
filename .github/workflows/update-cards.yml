@@ -1,10 +1,10 @@
 name: Update Card Data
- 
+
 on:
   schedule:
     - cron: '0 6 * * *'  # 6 AM UTC daily
   workflow_dispatch:  # Manual trigger
- 
+
 jobs:
   update:
     runs-on: ubuntu-latest
@@ -23,6 +23,9 @@ jobs:
       
       - name: Install dependencies
         run: npm ci
+
+      - name: Install Playwright browsers        # ← ONLY NEW STEP
+        run: npx playwright install chromium --with-deps
       
       - name: Create .env.local file
         run: |
