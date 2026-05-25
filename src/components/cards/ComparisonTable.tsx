@@ -18,8 +18,10 @@ export function ComparisonTable({ cards }: ComparisonTableProps) {
     );
   }
   
-  const formatValue = (value: number | null | undefined, suffix: string = '') => {
+const formatValue = (value: number | null | undefined, suffix: string = '') => {
     if (value === null || value === undefined) return '-';
+    // The Intercept: If the database sends 99, render 'Unlimited' without the suffix
+    if (value === 99) return 'Unlimited'; 
     return `${value}${suffix}`;
   };
   
@@ -134,12 +136,24 @@ export function ComparisonTable({ cards }: ComparisonTableProps) {
             ))}
           </ComparisonRow>
           
-          <ComparisonRow label="Air Accident Insurance" icon={<Shield className="h-4 w-4" />}>
-            {cards.map(card => (
-              <td key={card.id} className="px-4 py-3">
-                {card.air_accident_insurance ? formatCurrency(card.air_accident_insurance) : '-'}
-              </td>
-            ))}
+<ComparisonRow label="Air Accident Insurance" icon={<Shield className="h-4 w-4" />}>
+            {cards.map(card => {
+              let displayValue = '-';
+              if (card.air_accident_insurance) {
+                if (card.air_accident_insurance >= 10000000) {
+                  displayValue = `₹${card.air_accident_insurance / 10000000} Crore`;
+                } else if (card.air_accident_insurance >= 100000) {
+                  displayValue = `₹${card.air_accident_insurance / 100000} Lakh`;
+                } else {
+                  displayValue = formatCurrency(card.air_accident_insurance);
+                }
+              }
+              return (
+                <td key={card.id} className="px-4 py-3">
+                  {displayValue}
+                </td>
+              );
+            })}
           </ComparisonRow>
           
           <ComparisonRow label="Min. Monthly Income" icon={<span className="text-sm">💰</span>}>
