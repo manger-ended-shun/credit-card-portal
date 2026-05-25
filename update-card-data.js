@@ -4,12 +4,23 @@ dotenv.config({ path: '.env.local' });
  
 const { createClient } = require('@supabase/supabase-js');
  
+// Debug: Check environment variables
+console.log('🔍 Checking environment variables...');
+console.log('SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? '✅ Set' : '❌ Missing');
+console.log('SUPABASE_ANON_KEY:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '✅ Set' : '❌ Missing');
+console.log('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? '✅ Set' : '❌ Missing');
+ 
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('❌ Missing required environment variables');
+  process.exit(1);
+}
+ 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // Use service role for updates
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
  
 const supabase = createClient(supabaseUrl, supabaseKey);
  
-// Credit card data sources - these are the actual bank websites and comparison sites
+// Credit card data
 const DATA_SOURCES = {
   HDFC: {
     name: 'HDFC Bank',
@@ -285,14 +296,19 @@ async function updateDatabase() {
     // Step 1: Update banks
     console.log('📋 Step 1: Updating banks...');
     for (const [bankCode, bankData] of Object.entries(DATA_SOURCES)) {
-      const { data: existingBank } = await supabase
+      const { data: existingBank, error: bankError } = await supabase
         .from('banks')
         .select('id')
         .eq('name', bankData.name)
         .single();
  
+      if (bankError && bankError.code !== 'PGRST116') {
+        console.error(`  ❌ Error checking bank ${bankData.name}:`, bankError.message);
+        continue;
+      }
+ 
       if (existingBank) {
-        await supabase
+        const { error: updateError } = await supabase
           .from('banks')
           .update({
             website_url: bankData.website,
@@ -300,9 +316,14 @@ async function updateDatabase() {
             updated_at: new Date().toISOString()
           })
           .eq('id', existingBank.id);
-        console.log(`  ✅ Updated: ${bankData.name}`);
+        
+        if (updateError) {
+          console.error(`  ❌ Error updating ${bankData.name}:`, updateError.message);
+        } else {
+          console.log(`  ✅ Updated: ${bankData.name}`);
+        }
       } else {
-        await supabase
+        const { error: insertError } = await supabase
           .from('banks')
           .insert({
             name: bankData.name,
@@ -311,21 +332,31 @@ async function updateDatabase() {
             cards_count: bankData.cards.length,
             is_active: true
           });
-        console.log(`  ✅ Added: ${bankData.name}`);
+        
+        if (insertError) {
+          console.error(`  ❌ Error adding ${bankData.name}:`, insertError.message);
+        } else {
+          console.log(`  ✅ Added: ${bankData.name}`);
+        }
       }
     }
  
     // Step 2: Update cards
     console.log('\n📋 Step 2: Updating cards...');
     for (const [bankCode, bankData] of Object.entries(DATA_SOURCES)) {
-      const { data: bank } = await supabase
+      const { data: bank, error: bankError } = await supabase
         .from('banks')
         .select('id')
         .eq('name', bankData.name)
         .single();
  
+      if (bankError || !bank) {
+        console.error(`  ❌ Bank not found: ${bankData.name}`);
+        continue;
+      }
+ 
       for (const card of bankData.cards) {
-        const { data: existingCard } = await supabase
+        const { data: existingCard, error: cardError } = await supabase
           .from('cards')
           .select('id')
           .eq('card_name', card.card_name)
@@ -339,17 +370,32 @@ async function updateDatabase() {
           is_active: true
         };
  
+        if (cardError && cardError.code !== 'PGRST116') {
+          console.error(`  ❌ Error checking card ${card.card_name}:`, cardError.message);
+          continue;
+        }
+ 
         if (existingCard) {
-          await supabase
+          const { error: updateError } = await supabase
             .from('cards')
             .update(cardData)
             .eq('id', existingCard.id);
-          console.log(`  ✅ Updated: ${card.card_name}`);
+          
+          if (updateError) {
+            console.error(`  ❌ Error updating ${card.card_name}:`, updateError.message);
+          } else {
+            console.log(`  ✅ Updated: ${card.card_name}`);
+          }
         } else {
-          await supabase
+          const { error: insertError } = await supabase
             .from('cards')
             .insert(cardData);
-          console.log(`  ✅ Added: ${card.card_name}`);
+          
+          if (insertError) {
+            console.error(`  ❌ Error adding ${card.card_name}:`, insertError.message);
+          } else {
+            console.log(`  ✅ Added: ${card.card_name}`);
+          }
         }
       }
     }
@@ -357,7 +403,7 @@ async function updateDatabase() {
     // Step 3: Update offers
     console.log('\n📋 Step 3: Updating offers...');
     for (const offer of CURRENT_OFFERS) {
-      const { data: existingOffer } = await supabase
+      const { data: existingOffer, error: offerError } = await supabase
         .from('offers')
         .select('id')
         .eq('title', offer.title)
@@ -369,17 +415,32 @@ async function updateDatabase() {
         is_active: true
       };
  
+      if (offerError && offerError.code !== 'PGRST116') {
+        console.error(`  ❌ Error checking offer ${offer.title}:`, offerError.message);
+        continue;
+      }
+ 
       if (existingOffer) {
-        await supabase
+        const { error: updateError } = await supabase
           .from('offers')
           .update(offerData)
           .eq('id', existingOffer.id);
-        console.log(`  ✅ Updated: ${offer.title}`);
+        
+        if (updateError) {
+          console.error(`  ❌ Error updating ${offer.title}:`, updateError.message);
+        } else {
+          console.log(`  ✅ Updated: ${offer.title}`);
+        }
       } else {
-        await supabase
+        const { error: insertError } = await supabase
           .from('offers')
           .insert(offerData);
-        console.log(`  ✅ Added: ${offer.title}`);
+        
+        if (insertError) {
+          console.error(`  ❌ Error adding ${offer.title}:`, insertError.message);
+        } else {
+          console.log(`  ✅ Added: ${offer.title}`);
+        }
       }
     }
  
@@ -390,7 +451,7 @@ async function updateDatabase() {
     console.log(`   - Offers: ${CURRENT_OFFERS.length}`);
  
   } catch (error) {
-    console.error('❌ Error updating database:', error);
+    console.error('❌ Fatal error:', error);
     process.exit(1);
   }
 }
