@@ -34,4 +34,4 @@ jobs:
           echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env.local
       
       - name: Run update script
-        run: node update-card-data.js
+        run: NODE_PATH=$(pwd)/node_modules node update-card-data.js
