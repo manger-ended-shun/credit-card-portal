@@ -1,12 +1,24 @@
 const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
+const WebSocket = require('ws'); // 1. Add this import
 
-// Go up three levels to reach the root where .env.local resides
 dotenv.config({ path: path.resolve(__dirname, '../../../.env.local') });
 
 const { createClient } = require('@supabase/supabase-js');
 const { chromium } = require('playwright');
+
+// 2. Provide the 'ws' transport option in the client initialization
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL, 
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  {
+    realtime: {
+      transport: WebSocket,
+    },
+  }
+);
+// ... rest of your script
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
