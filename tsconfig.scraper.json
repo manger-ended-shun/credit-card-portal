@@ -9,6 +9,6 @@
     "resolveJsonModule": true,
     "outDir": "./dist-scraper"
   },
-  "include": ["scrapers/**/*"],
+  "include": ["src/lib/scrapers/**/*"],
   "exclude": ["node_modules"]
 }
