@@ -1,7 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
-import { AWARD_CHARTS, Zone } from './awardCharts';
+// src/lib/scrapers/index.ts
 
-// These use the env vars we set in GitHub Actions secrets
+// Note the addition of .js at the end of the import
+import { AWARD_CHARTS, Zone } from './awardCharts.js'; 
+import { createClient } from '@supabase/supabase-js';
+
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
