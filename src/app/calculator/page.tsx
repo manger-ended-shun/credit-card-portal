@@ -23,7 +23,7 @@ interface Flight {
   points: string;
   taxes: string;
   tags?: Tag[] | null;
-  desc: string;
+  description: string; // Updated from desc to match database
 }
 
 interface Card {
@@ -42,11 +42,6 @@ interface CalculatedCard extends Card {
   score: number;
   calcAnnPts: string;
   calcMonPts: string;
-}
-
-// --- HELPER: Get today's date as YYYY-MM-DD ---
-function getTodayDate(): string {
-  return new Date().toISOString().split('T')[0];
 }
 
 export default function AwardCalculator() {
@@ -98,20 +93,17 @@ export default function AwardCalculator() {
     fetchCards();
   }, []);
 
-  // --- SEARCH ROUTES (Calls our AI Caching API with current date) ---
+  // --- SEARCH ROUTES ---
   const handleSearchRoute = async () => {
     if (!source || !destination) return;
 
     setIsSearchingFlights(true);
     setFlightResults([]);
 
-    // Get today's date to pass to the API so the AI only returns
-    // currently operating airlines and programs.
-    const today = getTodayDate();
-
     try {
+      // Direct call to API without the date logic
       const res = await fetch(
-        `/api/update-data?origin=${source}&dest=${destination}&date=${today}`
+        `/api/update-data?origin=${source}&dest=${destination}`
       );
       const json = await res.json();
 
@@ -312,12 +304,6 @@ export default function AwardCalculator() {
                 </div>
               </div>
 
-              {/* Date indicator — visible to the user so they can see what date is being sent */}
-              <p className="mt-3 text-xs text-slate-400 text-right">
-                Searching for currently operating airlines as of{' '}
-                <span className="font-medium text-slate-500">{getTodayDate()}</span>
-              </p>
-
               <div className="mt-4 flex justify-end">
                 <button
                   onClick={handleSearchRoute}
@@ -374,7 +360,8 @@ export default function AwardCalculator() {
                             </span>
                           ))}
                       </div>
-                      <p className="text-sm text-slate-500 mb-5">{flight.desc}</p>
+                      {/* Updated rendering to match new database structure */}
+                      <p className="text-sm text-slate-500 mb-5">{flight.description}</p>
 
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {[

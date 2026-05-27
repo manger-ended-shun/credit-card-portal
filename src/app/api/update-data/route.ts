@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// Use the standard public URL, but securely use the backend service key (or anon key fallback)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY || '';
-const groqApiKey = process.env.GROQ_API_KEY || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -17,47 +17,26 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: false, error: "Missing parameters" }, { status: 400 });
     }
 
-    // 1. Try fetching from Supabase first
-    const { data: dbData } = await supabase
+    // Directly query the Supabase database populated by our GitHub Action scraper
+    const { data: dbData, error } = await supabase
       .from('flight_routes')
       .select('*')
       .eq('origin', origin)
       .eq('dest', dest);
 
-    if (dbData && dbData.length > 0) {
-      return NextResponse.json({ success: true, source: 'db', data: dbData });
+    if (error) {
+      throw new Error(error.message);
     }
 
-    // 2. Fetch from Groq if not in DB
-    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${groqApiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: "groq/compound",
-        messages: [
-          { role: "system", content: "You are a helpful travel assistant. Provide flight route data in JSON format." },
-          { role: "user", content: `Find flight routes from ${origin} to ${dest}.` }
-        ],
-        temperature: 0.1
-      })
-    });
-
-    if (!groqResponse.ok) {
-      throw new Error(`Groq API error: ${groqResponse.statusText}`);
-    }
-
-    const groqData = await groqResponse.json();
-    
+    // Return the payload directly to the frontend
     return NextResponse.json({ 
       success: true, 
-      source: 'groq', 
-      data: groqData.choices?.[0]?.message?.content 
+      source: 'db', 
+      data: dbData || [] 
     });
 
   } catch (error: any) {
+    console.error("Database fetch error:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
