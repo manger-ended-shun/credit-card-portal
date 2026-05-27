@@ -19,15 +19,31 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const sourcesPath = path.join(__dirname, 'sources.json');
 const sources = JSON.parse(fs.readFileSync(sourcesPath, 'utf8'));
 
+// 1. Upgraded Fetch with Headers & Validation
 async function fetchAndParsePdf(url) {
   try {
-    const response = await fetch(url);
+    // Add headers to bypass basic bot-protection on bank websites
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/pdf'
+      }
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    
+    // Ensure the URL didn't redirect us to an HTML login or 404 page
+    const contentType = response.headers.get('content-type');
+    if (contentType && !contentType.includes('pdf')) {
+       throw new Error('Link redirected to a non-PDF webpage');
+    }
+
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer); 
     const data = await pdf(buffer);
     return data.text;
   } catch (e) {
-    console.warn(`⚠️ Failed to parse PDF: ${url}`);
+    console.warn(`⚠️ Failed to parse PDF: ${url} | Reason: ${e.message}`);
     return "";
   }
 }
@@ -70,11 +86,15 @@ async function main() {
     } catch (e) { console.warn(`⚠️ Could not scrape source: ${source}`); }
   }
 
+  // 2. Aggressive Blocklist to filter out blogs, news, and comparison hubs
+  const blockList = [
+    'best', 'top', 'compare', 'interest-rate', 'eligibility', 
+    'loan', 'statement', 'bill-payment', 'revision', 'change', 
+    'devaluation', 'fees', 'withdrawal', 'virtual', 'lounge-access'
+  ];
+
   const cardUrls = Array.from(allUrls).filter(url => 
-    !url.includes('/compare') && 
-    !url.includes('/best-') && 
-    !url.includes('/interest-rates') && 
-    !url.includes('/eligibility') &&
+    !blockList.some(keyword => url.toLowerCase().includes(keyword)) &&
     url.endsWith('/')
   );
 
