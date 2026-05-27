@@ -1,7 +1,6 @@
 // src/lib/scrapers/index.ts
 
 // REVERTED: Remove the .js extension so it resolves to awardCharts.ts
-import { AWARD_CHARTS, Zone } from './awardCharts'; 
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;

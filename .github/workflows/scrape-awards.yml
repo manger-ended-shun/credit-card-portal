@@ -13,8 +13,8 @@ jobs:
         with:
           node-version: '22'
       - run: npm install
-      # Points to the new location in src/lib/scrapers
-      - run: npx ts-node src/lib/scrapers/index.ts
+      # Replaced ts-node with tsx
+      - run: npx tsx src/lib/scrapers/index.ts
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
