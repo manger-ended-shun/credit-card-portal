@@ -1,0 +1,20 @@
+name: Sync Award Data
+on:
+  schedule:
+    - cron: '0 2 * * *' # Runs at 2am UTC daily
+  workflow_dispatch:      # Allows you to click "Run workflow" manually
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - run: npm install
+      # This command runs your scraper script using the ts-node configuration we created
+      - run: npx ts-node scrapers/index.ts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

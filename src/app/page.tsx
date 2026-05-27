@@ -1,100 +1,102 @@
 import Link from 'next/link';
-import { CreditCard, Tag, BarChart3, ArrowRight } from 'lucide-react';
+import { CreditCard, Tag, ArrowRight, Plane } from 'lucide-react';
  
 export default function Home() {
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex flex-col">
       {/* Hero Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="text-center">
-          <h1 className="text-5xl font-bold text-gray-900 mb-6">
+      <div className="flex-grow flex flex-col justify-center w-full px-4 sm:px-6 lg:px-8 py-16 md:py-24 lg:py-32">
+        <div className="text-center w-full max-w-screen-md mx-auto">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 mb-6 tracking-tight leading-tight">
             Indian Credit Card Portal
           </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-10">
-            Compare credit cards, discover offers, and find the perfect card for your needs
+          <p className="text-lg sm:text-xl text-gray-600 mb-12">
+            Compare credit cards, discover offers, and find the perfect card for your lifestyle and travel needs.
           </p>
         </div>
         
-        {/* Feature Cards */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3 max-w-5xl mx-auto mt-12">
+        {/* Feature Cards - Fluid Grid Layout */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 w-full max-w-screen-xl mx-auto">
+          
           {/* Compare Cards */}
           <Link
             href="/compare"
-            className="group rounded-xl border border-gray-200 bg-white p-8 shadow-sm hover:shadow-lg transition-all"
+            className="group rounded-2xl border border-gray-200 bg-white p-6 sm:p-8 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-full"
           >
-            <div className="rounded-lg bg-blue-100 w-12 h-12 flex items-center justify-center mb-4">
-              <CreditCard className="h-6 w-6 text-blue-600" />
+            <div className="inline-flex p-4 rounded-xl bg-blue-50 self-start mb-6 group-hover:bg-blue-100 transition-colors">
+              <CreditCard className="w-8 h-8 text-blue-600" />
             </div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
               Compare Cards
             </h2>
-            <p className="text-gray-600 mb-4">
-              Side-by-side comparison of credit cards from all major Indian banks
+            <p className="text-gray-600 mb-6 flex-grow text-lg leading-relaxed">
+              Side-by-side comparison of credit cards from all major Indian banks to maximize your rewards.
             </p>
-            <span className="inline-flex items-center text-blue-600 font-medium group-hover:gap-2 transition-all">
-              Start comparing <ArrowRight className="h-4 w-4 ml-1" />
+            <span className="inline-flex items-center text-blue-600 font-medium group-hover:gap-2 transition-all mt-auto text-lg">
+              Start comparing <ArrowRight className="w-5 h-5 ml-1" />
             </span>
           </Link>
           
           {/* Latest Offers */}
           <Link
             href="/offers"
-            className="group rounded-xl border border-gray-200 bg-white p-8 shadow-sm hover:shadow-lg transition-all"
+            className="group rounded-2xl border border-gray-200 bg-white p-6 sm:p-8 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-full"
           >
-            <div className="rounded-lg bg-green-100 w-12 h-12 flex items-center justify-center mb-4">
-              <Tag className="h-6 w-6 text-green-600" />
+            <div className="inline-flex p-4 rounded-xl bg-green-50 self-start mb-6 group-hover:bg-green-100 transition-colors">
+              <Tag className="w-8 h-8 text-green-600" />
             </div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
               Latest Offers
             </h2>
-            <p className="text-gray-600 mb-4">
-              Current offers, bonuses, and cashback deals from credit cards
+            <p className="text-gray-600 mb-6 flex-grow text-lg leading-relaxed">
+              Current offers, welcome bonuses, and limited-time cashback deals from top credit cards.
             </p>
-            <span className="inline-flex items-center text-green-600 font-medium group-hover:gap-2 transition-all">
-              View offers <ArrowRight className="h-4 w-4 ml-1" />
+            <span className="inline-flex items-center text-green-600 font-medium group-hover:gap-2 transition-all mt-auto text-lg">
+              View offers <ArrowRight className="w-5 h-5 ml-1" />
+            </span>
+          </Link>
+
+          {/* Points Calculator */}
+          <Link
+            href="/calculator"
+            className="group rounded-2xl border border-gray-200 bg-white p-6 sm:p-8 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-full"
+          >
+            <div className="inline-flex p-4 rounded-xl bg-indigo-50 self-start mb-6 group-hover:bg-indigo-100 transition-colors">
+              <Plane className="w-8 h-8 text-indigo-600" />
+            </div>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+              Points Calculator
+            </h2>
+            <p className="text-gray-600 mb-6 flex-grow text-lg leading-relaxed">
+              Discover exactly how many points you need and which card earns the most for your next flight.
+            </p>
+            <span className="inline-flex items-center text-indigo-600 font-medium group-hover:gap-2 transition-all mt-auto text-lg">
+              Calculate Now <ArrowRight className="w-5 h-5 ml-1" />
             </span>
           </Link>
           
-          {/* Search Analytics */}
-          <Link
-            href="/analytics"
-            className="group rounded-xl border border-gray-200 bg-white p-8 shadow-sm hover:shadow-lg transition-all"
-          >
-            <div className="rounded-lg bg-purple-100 w-12 h-12 flex items-center justify-center mb-4">
-              <BarChart3 className="h-6 w-6 text-purple-600" />
-            </div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              Search Analytics
-            </h2>
-            <p className="text-gray-600 mb-4">
-              See what users are searching for and trending queries
-            </p>
-            <span className="inline-flex items-center text-purple-600 font-medium group-hover:gap-2 transition-all">
-              View analytics <ArrowRight className="h-4 w-4 ml-1" />
-            </span>
-          </Link>
         </div>
       </div>
       
-      {/* Stats Section */}
-      <div className="bg-white border-t border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid grid-cols-2 gap-8 md:grid-cols-4 text-center">
-            <div>
-              <p className="text-4xl font-bold text-blue-600">20+</p>
-              <p className="text-gray-600 mt-1">Banks</p>
+      {/* Stats Section - Fluid Widths */}
+      <div className="bg-white border-t border-gray-100 w-full mt-auto">
+        <div className="w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12 text-center w-full">
+            <div className="flex flex-col items-center">
+              <p className="text-4xl lg:text-5xl font-bold text-blue-600 mb-2">20+</p>
+              <p className="text-gray-500 font-medium text-lg">Banks</p>
             </div>
-            <div>
-              <p className="text-4xl font-bold text-blue-600">100+</p>
-              <p className="text-gray-600 mt-1">Cards</p>
+            <div className="flex flex-col items-center">
+              <p className="text-4xl lg:text-5xl font-bold text-blue-600 mb-2">100+</p>
+              <p className="text-gray-500 font-medium text-lg">Cards</p>
             </div>
-            <div>
-              <p className="text-4xl font-bold text-blue-600">50+</p>
-              <p className="text-gray-600 mt-1">Offers</p>
+            <div className="flex flex-col items-center">
+              <p className="text-4xl lg:text-5xl font-bold text-blue-600 mb-2">50+</p>
+              <p className="text-gray-500 font-medium text-lg">Offers</p>
             </div>
-            <div>
-              <p className="text-4xl font-bold text-blue-600">Real-time</p>
-              <p className="text-gray-600 mt-1">Updates</p>
+            <div className="flex flex-col items-center">
+              <p className="text-4xl lg:text-5xl font-bold text-blue-600 mb-2">Live</p>
+              <p className="text-gray-500 font-medium text-lg">Data Updates</p>
             </div>
           </div>
         </div>

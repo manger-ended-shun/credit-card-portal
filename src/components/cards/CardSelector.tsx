@@ -17,7 +17,7 @@ export function CardSelector({ cards, selectedCards, onSelectionChange }: CardSe
   const [selectedBank, setSelectedBank] = useState<string>('all');
   
   const banks = useMemo(() => {
-    const uniqueBanks = [...new Set(cards.map(card => card.bank_name))];
+const uniqueBanks = Array.from(new Set(cards.map(card => card.bank_name)));
     return ['all', ...uniqueBanks];
   }, [cards]);
   
