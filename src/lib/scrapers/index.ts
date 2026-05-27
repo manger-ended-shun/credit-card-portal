@@ -1,7 +1,7 @@
 // src/lib/scrapers/index.ts
 
-// Note the addition of .js at the end of the import
-import { AWARD_CHARTS, Zone } from './awardCharts.js'; 
+// REVERTED: Remove the .js extension so it resolves to awardCharts.ts
+import { AWARD_CHARTS, Zone } from './awardCharts'; 
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
