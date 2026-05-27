@@ -3,26 +3,18 @@ const fs = require('fs');
 const path = require('path');
 const WebSocket = require('ws'); 
 
-// Load env relative to root
 dotenv.config({ path: path.resolve(__dirname, '../../../.env.local') });
 
 const { createClient } = require('@supabase/supabase-js');
 const { chromium } = require('playwright');
 
-// Initialize Supabase ONCE with WebSocket transport for Node environments
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL, 
   process.env.SUPABASE_SERVICE_ROLE_KEY,
-  {
-    realtime: {
-      transport: WebSocket,
-    },
-  }
+  { realtime: { transport: WebSocket } }
 );
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
-
-// Load sources relative to this file
 const sourcesPath = path.join(__dirname, 'sources.json');
 const sources = JSON.parse(fs.readFileSync(sourcesPath, 'utf8'));
 
@@ -35,8 +27,8 @@ async function parseWithGroq(text, url) {
         model: "llama3-70b-8192",
         messages: [{
           role: "system",
-          content: `Extract credit card data into this strict JSON. Ensure numeric values for fees/rates.
-          { "card_name": "string", "bank_name": "string", "annual_fee": number, "base_reward_rate": number, "earn_accelerated": "string", "best_use": "string", "transfer_partners": "string", "earn_exclusions": "string", "domestic_lounge_access": number }`
+          content: `Extract credit card data into this strict JSON. If the content is not a specific card review, return {"error": "not_a_card"}. 
+          Schema: { "card_name": "string", "bank_name": "string", "annual_fee": number, "base_reward_rate": number, "best_use": "string", "transfer_partners": "string", "domestic_lounge_access": number }`
         }, { role: "user", content: `Extract from this page: ${url}\n\nContent: ${text.substring(0, 8000)}` }],
         response_format: { type: "json_object" }
       })
@@ -44,7 +36,6 @@ async function parseWithGroq(text, url) {
     const data = await response.json();
     return JSON.parse(data.choices[0].message.content);
   } catch (e) {
-    console.error(`❌ Groq failed for ${url}`);
     return null;
   }
 }
@@ -65,21 +56,32 @@ async function main() {
     } catch (e) { console.warn(`⚠️ Could not scrape source: ${source}`); }
   }
 
-  console.log(`🚀 Found ${allUrls.size} unique cards. Starting Extraction...`);
+  // Filter for real card pages only
+  const cardUrls = Array.from(allUrls).filter(url => 
+    !url.includes('/compare') && 
+    !url.includes('/best-') && 
+    !url.includes('/interest-rates') && 
+    !url.includes('/eligibility') &&
+    url.endsWith('/')
+  );
 
-  for (const url of Array.from(allUrls).slice(0, 20)) { 
+  console.log(`🚀 Found ${cardUrls.length} potential cards. Starting Extraction...`);
+
+  for (const url of cardUrls.slice(0, 20)) { 
     try {
-      await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+      console.log(`📄 Processing: ${url}`);
+      await page.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
       const text = await page.innerText('body');
       const data = await parseWithGroq(text, url);
       
-      if (data) {
-        await supabase.from('cards').upsert({
-          ...data,
-          last_updated: new Date().toISOString()
-        }, { onConflict: 'card_name' });
+      if (data && !data.error) {
+        await supabase.from('cards').upsert({ ...data, last_updated: new Date().toISOString() }, { onConflict: 'card_name' });
         console.log(`✅ Synced: ${data.card_name}`);
       }
+      
+      // Throttling: 5-second delay to respect API rate limits
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
     } catch (e) {
       console.error(`❌ Failed processing: ${url}`);
     }
