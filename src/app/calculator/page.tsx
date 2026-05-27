@@ -23,30 +23,36 @@ interface Flight {
   points: string;
   taxes: string;
   tags?: Tag[] | null;
-  description: string; // Updated from desc to match database
+  description: string;
 }
 
-interface Card {
+// Updated to match your exact database columns
+interface DBCard {
   id: string;
-  bank: string;
-  name: string;
-  desc: string;
-  benefits: string[] | null;
-  fee: string;
-  base_earn: number;
-  travel_boost: boolean;
-  online_boost: boolean;
+  bank_name: string;
+  card_name: string;
+  annual_fee: number;
+  base_reward_rate: number;
+  earn_base_rate: string;
+  earn_accelerated: string;
+  best_use: string;
+  category_rewards: string;
 }
 
-interface CalculatedCard extends Card {
+interface CalculatedCard extends DBCard {
   score: number;
   calcAnnPts: string;
   calcMonPts: string;
+  uiBank: string;
+  uiName: string;
+  uiDesc: string;
+  uiFee: string;
+  uiBenefits: string[];
 }
 
 export default function AwardCalculator() {
   // --- DATABASE STATE ---
-  const [liveCardDB, setLiveCardDB] = useState<Card[]>([]);
+  const [liveCardDB, setLiveCardDB] = useState<DBCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSearchingFlights, setIsSearchingFlights] = useState(false);
 
@@ -76,12 +82,12 @@ export default function AwardCalculator() {
           'Content-Type': 'application/json',
         };
 
-        const cardRes = await fetch(`${supabaseUrl}/rest/v1/credit_cards?select=*`, { headers });
+        const cardRes = await fetch(`${supabaseUrl}/rest/v1/cards?select=*`, { headers });
 
         if (cardRes.ok) {
-          const cards: Card[] = await cardRes.json();
+          const cards: DBCard[] = await cardRes.json();
           setLiveCardDB(cards);
-          if (cards.length > 0) setCurrentCards([cards[0].name]);
+          if (cards.length > 0 && cards[0].card_name) setCurrentCards([cards[0].card_name]);
         }
       } catch (error) {
         console.error('Error fetching card data:', error);
@@ -101,9 +107,9 @@ export default function AwardCalculator() {
     setFlightResults([]);
 
     try {
-      // Direct call to API without the date logic
       const res = await fetch(
-        `/api/update-data?origin=${source}&dest=${destination}`
+        `/api/update-data?origin=${source}&dest=${destination}`,
+        { cache: 'no-store' }
       );
       const json = await res.json();
 
@@ -129,13 +135,30 @@ export default function AwardCalculator() {
 
     let scoredCards: CalculatedCard[] = liveCardDB.map((card) => {
       let score = 0;
-      let effectiveEarnRate = Number(card.base_earn) || 0;
+      
+      // DB has rate per 100 (e.g. 3.33). Convert to a decimal for multiplication
+      let baseRatePer100 = Number(card.base_reward_rate) || 0;
+      let effectiveEarnRate = baseRatePer100 / 100;
 
-      if (spendCategory === 'Online Shopping' && card.online_boost) {
+// Dynamically detect boosts from text descriptions
+      // Safely handle JSON objects returned by Supabase
+      const accelStr = typeof card.earn_accelerated === 'string' 
+        ? card.earn_accelerated.toLowerCase() 
+        : JSON.stringify(card.earn_accelerated || '').toLowerCase();
+        
+      const catStr = typeof card.category_rewards === 'string' 
+        ? card.category_rewards.toLowerCase() 
+        : JSON.stringify(card.category_rewards || '').toLowerCase();
+
+      let hasTravelBoost = accelStr.includes('travel') || accelStr.includes('flight') || accelStr.includes('hotel');
+      let hasOnlineBoost = accelStr.includes('online') || accelStr.includes('smartbuy') || catStr.includes('online');
+
+      if (spendCategory === 'Online Shopping' && hasOnlineBoost) {
         score += 50;
-        effectiveEarnRate = 0.05;
-      } else if (spendCategory === 'Travel & Hotels' && card.travel_boost) {
+        effectiveEarnRate = effectiveEarnRate * 2; // rough multiplier based on boost
+      } else if (spendCategory === 'Travel & Hotels' && hasTravelBoost) {
         score += 30;
+        effectiveEarnRate = effectiveEarnRate * 1.5;
       }
 
       const calculatedAnnualPts = Math.round(annualVal * effectiveEarnRate);
@@ -143,11 +166,22 @@ export default function AwardCalculator() {
 
       score += calculatedAnnualPts / 1000;
 
+      // Extract top 3 benefits to display safely
+      const benefits = [];
+      if (card.earn_base_rate) benefits.push(card.earn_base_rate);
+      if (card.earn_accelerated) benefits.push(card.earn_accelerated.substring(0, 90) + '...');
+      if (card.best_use) benefits.push(`Best Use: ${card.best_use}`);
+
       return {
         ...card,
         score,
         calcAnnPts: calculatedAnnualPts.toLocaleString(),
         calcMonPts: calculatedMonthlyPts.toLocaleString(),
+        uiBank: card.bank_name || 'Bank',
+        uiName: card.card_name || 'Credit Card',
+        uiDesc: card.best_use || 'Premium rewards credit card',
+        uiFee: card.annual_fee ? `₹${card.annual_fee.toLocaleString()}` : 'Lifetime Free',
+        uiBenefits: benefits.slice(0, 3)
       };
     });
 
@@ -348,8 +382,16 @@ export default function AwardCalculator() {
                             ({flight.flight_class})
                           </span>
                         </h3>
-                        {flight.tags &&
-                          flight.tags.map((tag, tIdx) => (
+                        {/* Safely parse tags string into an array */}
+                        {(() => {
+                          let tagsArray: Tag[] = [];
+                          try {
+                            tagsArray = typeof flight.tags === 'string' 
+                              ? JSON.parse(flight.tags) 
+                              : (flight.tags || []);
+                          } catch (e) {}
+                          
+                          return tagsArray.map((tag, tIdx) => (
                             <span
                               key={tIdx}
                               className={`px-3 py-1 rounded-full border text-xs font-medium ${getBadgeColors(
@@ -358,9 +400,9 @@ export default function AwardCalculator() {
                             >
                               {tag.text}
                             </span>
-                          ))}
+                          ));
+                        })()}
                       </div>
-                      {/* Updated rendering to match new database structure */}
                       <p className="text-sm text-slate-500 mb-5">{flight.description}</p>
 
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -441,8 +483,8 @@ export default function AwardCalculator() {
                     className="w-full border-none bg-slate-50 rounded-lg p-3 text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none h-32 mb-3"
                   >
                     {liveCardDB.map((card) => (
-                      <option key={card.id || card.name} value={card.name} className="py-1">
-                        {card.name} ({card.bank})
+                      <option key={card.id || card.card_name} value={card.card_name} className="py-1">
+                        {card.card_name} ({card.bank_name})
                       </option>
                     ))}
                   </select>
@@ -525,7 +567,7 @@ export default function AwardCalculator() {
 
                       <div className="flex justify-between items-start mb-1">
                         <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
-                          {card.bank}
+                          {card.uiBank}
                         </span>
                         {idx === 0 && (
                           <span className="px-2.5 py-0.5 rounded-full border border-blue-300 bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider">
@@ -535,19 +577,22 @@ export default function AwardCalculator() {
                       </div>
 
                       <h3 className="text-lg font-bold text-slate-900 mb-3 leading-tight">
-                        {card.name}
+                        {card.uiName}
                       </h3>
-                      <p className="text-sm text-slate-600 mb-5 flex-grow">{card.desc}</p>
+                      <p className="text-sm text-slate-600 mb-5 flex-grow line-clamp-3">
+                        {card.uiDesc}
+                      </p>
 
                       <div className="mb-6">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
                           Key Benefits
                         </p>
                         <ul className="space-y-2 text-xs text-slate-600">
-                          {card.benefits &&
-                            card.benefits.map((benefit, bIdx) => (
+                          {card.uiBenefits &&
+                            card.uiBenefits.map((benefit, bIdx) => (
                               <li key={bIdx} className="flex gap-2 items-start">
-                                <span className="text-blue-500">✦</span> {benefit}
+                                <span className="text-blue-500 mt-0.5">✦</span> 
+                                <span>{benefit}</span>
                               </li>
                             ))}
                         </ul>
@@ -582,7 +627,7 @@ export default function AwardCalculator() {
 
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-slate-500">Annual fee</span>
-                        <span className="font-semibold text-slate-800">{card.fee}</span>
+                        <span className="font-semibold text-slate-800">{card.uiFee}</span>
                       </div>
                     </div>
                   ))

@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "sync-cards": "node src/lib/scrapers/update-card-data.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.98.0",
