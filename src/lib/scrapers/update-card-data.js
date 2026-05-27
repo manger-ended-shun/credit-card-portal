@@ -19,10 +19,9 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const sourcesPath = path.join(__dirname, 'sources.json');
 const sources = JSON.parse(fs.readFileSync(sourcesPath, 'utf8'));
 
-// 1. Upgraded Fetch with Headers & Validation
+// 1. Upgraded Fetch with Resilient PDF Parsing
 async function fetchAndParsePdf(url) {
   try {
-    // Add headers to bypass basic bot-protection on bank websites
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -30,18 +29,38 @@ async function fetchAndParsePdf(url) {
       }
     });
 
+    if (response.status === 404) {
+      console.log(`⚠️ Skipping: PDF not found (404) at ${url}`);
+      return "";
+    }
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     
-    // Ensure the URL didn't redirect us to an HTML login or 404 page
     const contentType = response.headers.get('content-type');
-    if (contentType && !contentType.includes('pdf')) {
-       throw new Error('Link redirected to a non-PDF webpage');
+    if (contentType && !contentType.includes('pdf') && !contentType.includes('octet-stream')) {
+       console.log(`⚠️ Skipping: Link redirected to a non-PDF webpage`);
+       return "";
     }
 
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer); 
-    const data = await pdf(buffer);
-    return data.text;
+    
+    // Safely invoke pdf-parse regardless of version or export style
+    let pdfText = "";
+    if (typeof pdf === 'function') {
+      const data = await pdf(buffer);
+      pdfText = data.text;
+    } else if (pdf.default && typeof pdf.default === 'function') {
+      const data = await pdf.default(buffer);
+      pdfText = data.text;
+    } else if (pdf.PDFParse) {
+      const parser = new pdf.PDFParse({ data: buffer });
+      const data = await parser.getText();
+      pdfText = data.text;
+    } else {
+      throw new Error("pdf-parse export format not recognized");
+    }
+    
+    return pdfText;
   } catch (e) {
     console.warn(`⚠️ Failed to parse PDF: ${url} | Reason: ${e.message}`);
     return "";
@@ -86,7 +105,6 @@ async function main() {
     } catch (e) { console.warn(`⚠️ Could not scrape source: ${source}`); }
   }
 
-  // 2. Aggressive Blocklist to filter out blogs, news, and comparison hubs
   const blockList = [
     'best', 'top', 'compare', 'interest-rate', 'eligibility', 
     'loan', 'statement', 'bill-payment', 'revision', 'change', 
