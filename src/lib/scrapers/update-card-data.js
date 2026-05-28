@@ -2,23 +2,17 @@ const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
 const WebSocket = require('ws'); 
-const crypto = require('crypto');
 
 dotenv.config({ path: path.resolve(__dirname, '../../../.env.local') });
 
-// Verify Groq API Key
+// Verify API Keys
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
-if (!GROQ_API_KEY) {
-  console.error("🚨 FATAL ERROR: GROQ_API_KEY is missing.");
-  process.exit(1);
-}
-
-// Verify Supabase Keys
+const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error("🚨 FATAL ERROR: Supabase credentials (URL or Service Role Key) are missing from the environment.");
+if (!GROQ_API_KEY || !SUPABASE_URL || !SUPABASE_KEY || !TAVILY_API_KEY) {
+  console.error("🚨 FATAL ERROR: Missing environment variables. Ensure GROQ, TAVILY, and SUPABASE keys are set.");
   process.exit(1);
 }
 
@@ -32,6 +26,38 @@ const supabase = createClient(
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// ==========================================
+// RAG SEARCH AGENT
+// ==========================================
+async function searchLiveWeb(bankName, cardName) {
+  console.log(`🔍 Searching live web for current data: ${cardName}...`);
+  try {
+    const response = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: TAVILY_API_KEY,
+        query: `${bankName} ${cardName} annual fee, joining fee, and reward points limit officially`,
+        search_depth: "basic",
+        include_answer: false,
+        max_results: 3
+      })
+    });
+    
+    const data = await response.json();
+    if (!data.results || data.results.length === 0) return "No live data found.";
+    
+    // Combine the snippets from the top 3 search results into a single string
+    return data.results.map(r => r.content).join("\n\n");
+  } catch (e) {
+    console.error(`⚠️ Web search failed for ${cardName}, falling back to AI memory.`, e.message);
+    return "No live data available. Rely on internal training data.";
+  }
+}
+
+// ==========================================
+// SCOUT PHASE
+// ==========================================
 async function getCardsForBank(bankName) {
   console.log(`\n🕵️ Scouting active cards for: ${bankName}...`);
   try {
@@ -43,50 +69,46 @@ async function getCardsForBank(bankName) {
         messages: [{
           role: "system",
           content: `You are a financial directory. List all active, currently issued consumer credit cards offered by ${bankName} in India as of May 2026. Exclude closed/deprecated cards, commercial cards, and debit cards. 
-          Output ONLY a valid JSON object with a single key "cards" containing an array of strings. 
-          Example: {"cards": ["Card Name 1", "Card Name 2"]}`
+          Output ONLY a valid JSON object with a single key "cards" containing an array of strings.`
         }],
         response_format: { type: "json_object" }
       })
     });
     
     const data = await response.json();
-
-    if (!response.ok) {
-      console.error(`🚨 Groq API Error (${response.status}):`, JSON.stringify(data));
-      return [];
-    }
-
-    const parsed = JSON.parse(data.choices[0].message.content);
-    return parsed.cards || [];
+    if (!response.ok) return [];
+    
+    return JSON.parse(data.choices[0].message.content).cards || [];
   } catch (e) {
-    console.error(`❌ Failed to scout cards for ${bankName}:`, e.message);
     return [];
   }
 }
 
-async function extractCardDetails(bankName, cardName) {
-  console.log(`📄 Deep Dive Extraction: ${cardName}`);
+// ==========================================
+// DEEP DIVE PHASE (Grounded with Live Data)
+// ==========================================
+async function extractCardDetails(bankName, cardName, liveContext) {
+  console.log(`📄 Deep Dive Extraction (Grounded): ${cardName}`);
   
   const masterPrompt = `
-You are the Master Financial Research & Data Extraction Engine specializing in the major banking tiers of the Indian credit card ecosystem. 
-Your objective is to extract the exact data for the following specific credit card: ${cardName} issued by ${bankName}.
+You are the Master Financial Research & Data Extraction Engine specializing in the Indian credit card ecosystem. 
+Your objective is to extract data for the following card: ${cardName} issued by ${bankName}.
+
+CRITICAL INSTRUCTION - LIVE WEB CONTEXT:
+Below is live, real-time search engine data for this exact card. You MUST prioritize these facts over your internal memory, especially for numerical values like the annual fee.
+---
+${liveContext}
+---
 
 Extraction Rules (Strict Compliance Required):
-1. No Hallucinations: Use your training data as of May 2026. If a specific data point is unknown or unverified, explicitly return null. Do not guess.
-2. Currency & Numbers Handling: All fee/limit fields must be raw integers in INR (e.g., 12000). 
-   - "base_reward_rate" MUST be a raw floating-point number representing the effective base return percentage (e.g., 1.33 or 2.0). Do not write text descriptions here.
+1. Currency & Numbers Handling: All fee/limit fields must be raw integers in INR (e.g., 4999). 
+   - "base_reward_rate" MUST be a raw floating-point number representing the effective base return percentage.
    - "value_paise" fields must be the actual value in Paise (e.g., 100 paise = 1 Rupee).
-3. String Arrays: "excluded_mcc" must be a flat array of 4-digit string Merchant Category Codes (e.g., ["4900", "6513"]).
-4. Category Rewards: "category_rewards" must be a clean JSON object containing accelerated categories and return rates (e.g., {"Dining": 6.66, "Travel": 10.00}).
-5. Transfer Partners: "transfer_partners" must explicitly list airlines/hotels and exact ratios (e.g., "Club Vistara (1:1)").
-6. Narrative Fields: Put human-readable descriptive text breakdown of base reward rules (like "4 points per Rs 150 spent") inside the "earn_base_rate" field.
+2. Category Rewards: "category_rewards" must be a clean JSON object containing accelerated categories and return rates.
+3. Narrative Fields: Put human-readable descriptive text breakdown of base reward rules inside the "earn_base_rate" field.
 
-Output the complete comprehensive dataset in ONE single, complete JSON object containing all the fields requested in the schema. Output ONLY the valid JSON object. Do not wrap the JSON in markdown code blocks.
-
-Schema mapping:
+Output ONLY a valid JSON object matching this exact schema:
 {
-  "id": "${crypto.randomUUID()}",
   "bank_name": "${bankName}",
   "card_name": "${cardName}",
   "card_type": "string",
@@ -129,19 +151,17 @@ Schema mapping:
     });
     
     const data = await response.json();
-
-    if (!response.ok) {
-      console.error(`🚨 Groq API Error (${response.status}):`, JSON.stringify(data));
-      return null;
-    }
+    if (!response.ok) return null;
 
     return JSON.parse(data.choices[0].message.content);
   } catch (e) {
-    console.error(`❌ Failed to extract details for ${cardName}:`, e.message);
     return null;
   }
 }
 
+// ==========================================
+// ORCHESTRATION PIPELINE
+// ==========================================
 async function main() {
   const targetBanks = [
     "HDFC Bank",
@@ -155,9 +175,14 @@ async function main() {
     if (cards.length === 0) continue;
 
     for (const cardName of cards) {
-      const cardDetails = await extractCardDetails(bank, cardName);
+      // 1. Get Live Web Truth
+      const liveContext = await searchLiveWeb(bank, cardName);
+      
+      // 2. Feed Truth to AI
+      const cardDetails = await extractCardDetails(bank, cardName, liveContext);
       
       if (cardDetails) {
+        // 3. Save to DB
         const { error } = await supabase
           .from('cards')
           .upsert({ 
