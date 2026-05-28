@@ -37,17 +37,16 @@ async function searchLiveWeb(bankName, cardName) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         api_key: TAVILY_API_KEY,
-        query: `${bankName} ${cardName} annual fee, joining fee, and reward points limit officially`,
+        query: `${bankName} ${cardName} credit card annual fee, golf benefits, reward exclusions, and point capping rules India`,
         search_depth: "basic",
         include_answer: false,
-        max_results: 3
+        max_results: 4
       })
     });
     
     const data = await response.json();
     if (!data.results || data.results.length === 0) return "No live data found.";
     
-    // Combine the snippets from the top 3 search results into a single string
     return data.results.map(r => r.content).join("\n\n");
   } catch (e) {
     console.error(`⚠️ Web search failed for ${cardName}, falling back to AI memory.`, e.message);
@@ -95,7 +94,7 @@ You are the Master Financial Research & Data Extraction Engine specializing in t
 Your objective is to extract data for the following card: ${cardName} issued by ${bankName}.
 
 CRITICAL INSTRUCTION - LIVE WEB CONTEXT:
-Below is live, real-time search engine data for this exact card. You MUST prioritize these facts over your internal memory, especially for numerical values like the annual fee.
+Below is live, real-time search engine data for this exact card. You MUST prioritize these facts over your internal memory, especially for numerical values like the annual fee, capping structures, and lifestyle privileges.
 ---
 ${liveContext}
 ---
@@ -104,8 +103,9 @@ Extraction Rules (Strict Compliance Required):
 1. Currency & Numbers Handling: All fee/limit fields must be raw integers in INR (e.g., 4999). 
    - "base_reward_rate" MUST be a raw floating-point number representing the effective base return percentage.
    - "value_paise" fields must be the actual value in Paise (e.g., 100 paise = 1 Rupee).
-2. Category Rewards: "category_rewards" must be a clean JSON object containing accelerated categories and return rates.
-3. Narrative Fields: Put human-readable descriptive text breakdown of base reward rules inside the "earn_base_rate" field.
+2. Capped Categories vs Exclusions (CRITICAL): If a category (like Utilities, Insurance, Education, or Rent) earns reward points up to a monthly/statement cap (e.g., "capped at 3,000 points" or "points on first 3000 points, after which 0 points"), DO NOT put it in the "excluded_mcc" array. The "excluded_mcc" array is strictly for categories that earn exactly 0 points from the very first rupee (like Fuel, or completely barred spends).
+3. Narrative Fields: Put human-readable descriptions of any reward capping or complex earning rules (e.g., "Utilities and Insurance capped at 3,000 RP/month, thereafter 0") inside the "earn_base_rate" field so they display accurately on the frontend.
+4. Golf Benefits: Accurately extract the total number of complimentary golf rounds or lessons provided per year into the "golf_rounds_per_year" field based on the live data context. If it offers unlimited or a specific number, provide that integer. If none, provide null or 0.
 
 Output ONLY a valid JSON object matching this exact schema:
 {
@@ -126,6 +126,7 @@ Output ONLY a valid JSON object matching this exact schema:
   "welcome_spend_requirement": "number or null",
   "domestic_lounge_access": "number or null",
   "international_lounge_access": "number or null",
+  "golf_rounds_per_year": "number or null",
   "lounge_program": "string or null",
   "air_miles_earning": "boolean",
   "transfer_partners": "string or null",
@@ -165,7 +166,8 @@ Output ONLY a valid JSON object matching this exact schema:
 async function main() {
   const targetBanks = [
     "HDFC Bank",
-    "SBI Card"
+    "SBI Card",
+    "HSBC India"
   ];
 
   for (const bank of targetBanks) {
