@@ -2,9 +2,17 @@ const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
 const WebSocket = require('ws'); 
-const crypto = require('crypto'); // For generating UUIDs
+const crypto = require('crypto');
 
+// Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '../../../.env.local') });
+
+// 1. Safety Net: Verify keys are loaded before starting
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+if (!GROQ_API_KEY) {
+  console.error("🚨 FATAL ERROR: GROQ_API_KEY is completely missing. The script cannot authenticate with the AI.");
+  process.exit(1);
+}
 
 const { createClient } = require('@supabase/supabase-js');
 
@@ -14,14 +22,8 @@ const supabase = createClient(
   { realtime: { transport: WebSocket } }
 );
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
-
-// Utility for rate limiting
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// ==========================================
-// PHASE 1: THE SCOUT
-// ==========================================
 async function getCardsForBank(bankName) {
   console.log(`\n🕵️ Scouting active cards for: ${bankName}...`);
   try {
@@ -41,6 +43,13 @@ async function getCardsForBank(bankName) {
     });
     
     const data = await response.json();
+
+    // 2. Safety Net: Log the exact API rejection if it fails
+    if (!response.ok) {
+      console.error(`🚨 Groq API Error (${response.status}):`, JSON.stringify(data));
+      return [];
+    }
+
     const parsed = JSON.parse(data.choices[0].message.content);
     return parsed.cards || [];
   } catch (e) {
@@ -49,9 +58,6 @@ async function getCardsForBank(bankName) {
   }
 }
 
-// ==========================================
-// PHASE 2: THE DEEP DIVE (Master Prompt)
-// ==========================================
 async function extractCardDetails(bankName, cardName) {
   console.log(`📄 Deep Dive Extraction: ${cardName}`);
   
@@ -112,6 +118,12 @@ Schema mapping:
     });
     
     const data = await response.json();
+
+    if (!response.ok) {
+      console.error(`🚨 Groq API Error (${response.status}):`, JSON.stringify(data));
+      return null;
+    }
+
     return JSON.parse(data.choices[0].message.content);
   } catch (e) {
     console.error(`❌ Failed to extract details for ${cardName}:`, e.message);
@@ -119,28 +131,22 @@ Schema mapping:
   }
 }
 
-// ==========================================
-// ORCHESTRATION PIPELINE
-// ==========================================
 async function main() {
-  // Define the banks you want to process
   const targetBanks = [
     "HDFC Bank",
     "SBI Card"
-    // Add "Axis Bank", "ICICI Bank", etc. here as needed
   ];
 
   for (const bank of targetBanks) {
-    // 1. Scout the bank
     const cards = await getCardsForBank(bank);
     console.log(`✅ Found ${cards.length} cards for ${bank}.`);
 
-    // 2. Loop through each card and extract data
+    if (cards.length === 0) continue;
+
     for (const cardName of cards) {
       const cardDetails = await extractCardDetails(bank, cardName);
       
       if (cardDetails) {
-        // Upsert into Supabase
         const { error } = await supabase
           .from('cards')
           .upsert({ 
@@ -157,8 +163,7 @@ async function main() {
         }
       }
       
-      // Throttle to respect Groq free tier API limits (15 seconds between large prompts)
-      console.log('⏳ Pausing for rate limits...');
+      console.log('⏳ Pausing for 15 seconds to respect rate limits...');
       await sleep(15000); 
     }
   }
