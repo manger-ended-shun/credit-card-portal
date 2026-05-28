@@ -6,17 +6,27 @@ const crypto = require('crypto');
 
 dotenv.config({ path: path.resolve(__dirname, '../../../.env.local') });
 
+// Verify Groq API Key
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 if (!GROQ_API_KEY) {
-  console.error("🚨 FATAL ERROR: GROQ_API_KEY is completely missing. The script cannot authenticate with the AI.");
+  console.error("🚨 FATAL ERROR: GROQ_API_KEY is missing.");
+  process.exit(1);
+}
+
+// Verify Supabase Keys
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error("🚨 FATAL ERROR: Supabase credentials (URL or Service Role Key) are missing from the environment.");
   process.exit(1);
 }
 
 const { createClient } = require('@supabase/supabase-js');
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL, 
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  SUPABASE_URL, 
+  SUPABASE_KEY,
   { realtime: { transport: WebSocket } }
 );
 
@@ -29,7 +39,7 @@ async function getCardsForBank(bankName) {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile", // 🟢 UPDATED MODEL HERE
+        model: "llama-3.3-70b-versatile",
         messages: [{
           role: "system",
           content: `You are a financial directory. List all active, currently issued consumer credit cards offered by ${bankName} in India as of May 2026. Exclude closed/deprecated cards, commercial cards, and debit cards. 
@@ -64,10 +74,13 @@ Your objective is to extract the exact data for the following specific credit ca
 
 Extraction Rules (Strict Compliance Required):
 1. No Hallucinations: Use your training data as of May 2026. If a specific data point is unknown or unverified, explicitly return null. Do not guess.
-2. Currency Handling: All fee/limit fields must be raw integers in INR (e.g., 12000). value_paise fields must be the actual value in Paise (e.g., 100 paise = 1 Rupee).
+2. Currency & Numbers Handling: All fee/limit fields must be raw integers in INR (e.g., 12000). 
+   - "base_reward_rate" MUST be a raw floating-point number representing the effective base return percentage (e.g., 1.33 or 2.0). Do not write text descriptions here.
+   - "value_paise" fields must be the actual value in Paise (e.g., 100 paise = 1 Rupee).
 3. String Arrays: "excluded_mcc" must be a flat array of 4-digit string Merchant Category Codes (e.g., ["4900", "6513"]).
-4. Category Rewards: "category_rewards" must be a clean JSON object (e.g., {"Dining": 6.66, "Travel": 10.00}).
-5. Transfer Partners: "partner_airlines" and "transfer_partners" must explicitly list airlines/hotels and exact ratios (e.g., "Club Vistara (1:1)").
+4. Category Rewards: "category_rewards" must be a clean JSON object containing accelerated categories and return rates (e.g., {"Dining": 6.66, "Travel": 10.00}).
+5. Transfer Partners: "transfer_partners" must explicitly list airlines/hotels and exact ratios (e.g., "Club Vistara (1:1)").
+6. Narrative Fields: Put human-readable descriptive text breakdown of base reward rules (like "4 points per Rs 150 spent") inside the "earn_base_rate" field.
 
 Output the complete comprehensive dataset in ONE single, complete JSON object containing all the fields requested in the schema. Output ONLY the valid JSON object. Do not wrap the JSON in markdown code blocks.
 
@@ -83,7 +96,7 @@ Schema mapping:
   "annual_fee_waiver_conditions": "string or null",
   "forex_markup": "number or null",
   "reward_type": "string",
-  "base_reward_rate": "string or null",
+  "base_reward_rate": "number or null",
   "base_reward_unit": "string",
   "category_rewards": "object or null",
   "point_value_paise": "number or null",
@@ -100,7 +113,8 @@ Schema mapping:
   "is_active": true,
   "best_use": "string or null",
   "excluded_mcc": "array of strings or null",
-  "metal_card": "boolean"
+  "metal_card": "boolean",
+  "earn_base_rate": "string or null"
 }`;
 
   try {
@@ -108,7 +122,7 @@ Schema mapping:
       method: 'POST',
       headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile", // 🟢 UPDATED MODEL HERE
+        model: "llama-3.3-70b-versatile",
         messages: [{ role: "user", content: masterPrompt }],
         response_format: { type: "json_object" }
       })
