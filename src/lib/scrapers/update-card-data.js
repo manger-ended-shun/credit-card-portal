@@ -101,14 +101,12 @@ ${liveContext}
 ---
 
 Extraction Rules (Strict Compliance Required):
-1. Currency & Numbers Handling: All fee, insurance, and limit fields must be raw integers in INR (e.g., 4999). 
-   - Floating-point rates (like base_reward_rate, forex_markup) MUST be raw decimal numbers.
-   - "value_paise" fields must be the actual value in Paise (e.g., 100 paise = 1 Rupee).
-2. Capped Categories vs Exclusions (CRITICAL): If a category (like Utilities, Insurance, Education, or Rent) earns reward points up to a monthly/statement cap, DO NOT put it in the "excluded_mcc" array. The "excluded_mcc" array is strictly for categories that earn exactly 0 points from the very first rupee.
-3. Narrative Fields: Put human-readable descriptions of any reward capping or complex earning rules inside the "earn_base_rate", "earn_accelerated", and "earn_exclusions" fields.
-4. Golf Benefits: Accurately extract the total number of complimentary golf rounds or lessons provided per year into the "golf_access" field. If this is a "Relationship Card" where the golf benefits are tied to the underlying premium bank account, YOU MUST include those account-level golf benefits here (e.g., if the account offers 24 rounds, output 24). If none exist, provide 0.
-5. Transfer Partners: Accurately list airline and hotel transfer partners along with their exact conversion ratios based on the live context. Store this as a descriptive string in "transfer_partners". Also accurately fill "airline_transfer_ratio" and "hotel_transfer_ratio" strings if uniform.
-6. Arrays: "partner_airlines" and "excluded_mcc" must strictly be flat arrays of strings. 
+1. Currency & Numbers Handling (CRITICAL): All fee, insurance, and limit fields must be raw integers in INR. For "annual_fee" and "joining_fee", you MUST extract the standard base fee strictly for the exact card variant named (e.g., do not confuse the classic 'Regalia' with 'Regalia Gold', though both typically have a base fee of 2500). Always extract the standard numerical fee, ignoring promotional "first year free" or "lifetime free" marketing text.
+2. Capped Categories vs Exclusions (CRITICAL): If a category (like Utilities or Rent) earns reward points up to a monthly cap, DO NOT put it in the "excluded_mcc" array. The "excluded_mcc" array is strictly for categories that earn exactly 0 points from the very first rupee.
+3. Golf Benefits: Extract the total number of complimentary golf rounds/lessons into "golf_access". If this is a "Relationship Card" where the golf benefits are tied to the underlying premium bank account, YOU MUST include those account-level golf benefits here (e.g., output 24). If none exist, provide 0.
+4. Transfer Partners & SQL Length Limits (CRITICAL): "airline_transfer_ratio", "hotel_transfer_ratio", and "reward_program_name" MUST BE STRICTLY UNDER 50 CHARACTERS. (e.g., output "2:1" or "100 RP = 50 Miles"). Do not write long sentences in these 3 fields! Put the full descriptive list of airlines/hotels in the "transfer_partners" field (which has no length limit). Note: HDFC Regalia and Regalia Gold DO have 22+ transfer partners (e.g., Singapore Airlines, Accor) mostly at a 2:1 ratio. You must include them!
+5. Schema Integrity (FATAL): Output ONLY the exact keys listed in the schema below. DO NOT invent or add extra keys (like 'credit_limit_max' or 'joining_benefits'). Adding unlisted keys will cause a fatal database crash.
+6. Arrays: "partner_airlines" and "excluded_mcc" must strictly be flat arrays of strings.
 
 Output ONLY a valid JSON object matching this exact schema:
 {
