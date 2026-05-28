@@ -101,7 +101,10 @@ ${liveContext}
 ---
 
 Extraction Rules (Strict Compliance Required):
-1. Currency & Numbers Handling (CRITICAL): All fee, insurance, and limit fields must be raw integers in INR. For "annual_fee" and "joining_fee", you MUST extract the standard base fee strictly for the exact card variant named (e.g., do not confuse the classic 'Regalia' with 'Regalia Gold', though both typically have a base fee of 2500). Always extract the standard numerical fee, ignoring promotional "first year free" or "lifetime free" marketing text.
+1. Currency & Numbers Handling (CRITICAL): All fee, insurance, and limit fields must be raw integers in INR. For "annual_fee" and "joining_fee", you MUST extract the base fee strictly for the exact card variant requested.
+   - FATAL WARNING 1: Do NOT confuse milestone bonus points (e.g., "10,000 reward points") with the annual fee. A fee is always preceded by ₹ or Rs.
+   - FATAL WARNING 2: Web pages often compare multiple cards. Do not accidentally extract the ₹10,000 fee for Diners Club Black or the ₹12,500 fee for Infinia when extracting data for Regalia/Regalia Gold. Both Regalia variants typically have a base fee of 2500. 
+   - Always extract the standard numerical fee, ignoring promotional "first year free" text.
 2. Capped Categories vs Exclusions (CRITICAL): If a category (like Utilities or Rent) earns reward points up to a monthly cap, DO NOT put it in the "excluded_mcc" array. The "excluded_mcc" array is strictly for categories that earn exactly 0 points from the very first rupee.
 3. Golf Benefits: Extract the total number of complimentary golf rounds/lessons into "golf_access". If this is a "Relationship Card" where the golf benefits are tied to the underlying premium bank account, YOU MUST include those account-level golf benefits here (e.g., output 24). If none exist, provide 0.
 4. Transfer Partners & SQL Length Limits (CRITICAL): "airline_transfer_ratio", "hotel_transfer_ratio", and "reward_program_name" MUST BE STRICTLY UNDER 50 CHARACTERS. (e.g., output "2:1" or "100 RP = 50 Miles"). Do not write long sentences in these 3 fields! Put the full descriptive list of airlines/hotels in the "transfer_partners" field (which has no length limit). Note: HDFC Regalia and Regalia Gold DO have 22+ transfer partners (e.g., Singapore Airlines, Accor) mostly at a 2:1 ratio. You must include them!
