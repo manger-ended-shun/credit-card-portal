@@ -4,10 +4,8 @@ const path = require('path');
 const WebSocket = require('ws'); 
 const crypto = require('crypto');
 
-// Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '../../../.env.local') });
 
-// 1. Safety Net: Verify keys are loaded before starting
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 if (!GROQ_API_KEY) {
   console.error("🚨 FATAL ERROR: GROQ_API_KEY is completely missing. The script cannot authenticate with the AI.");
@@ -31,7 +29,7 @@ async function getCardsForBank(bankName) {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: "llama3-70b-8192",
+        model: "llama-3.3-70b-versatile", // 🟢 UPDATED MODEL HERE
         messages: [{
           role: "system",
           content: `You are a financial directory. List all active, currently issued consumer credit cards offered by ${bankName} in India as of May 2026. Exclude closed/deprecated cards, commercial cards, and debit cards. 
@@ -44,7 +42,6 @@ async function getCardsForBank(bankName) {
     
     const data = await response.json();
 
-    // 2. Safety Net: Log the exact API rejection if it fails
     if (!response.ok) {
       console.error(`🚨 Groq API Error (${response.status}):`, JSON.stringify(data));
       return [];
@@ -111,7 +108,7 @@ Schema mapping:
       method: 'POST',
       headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: "llama3-70b-8192",
+        model: "llama-3.3-70b-versatile", // 🟢 UPDATED MODEL HERE
         messages: [{ role: "user", content: masterPrompt }],
         response_format: { type: "json_object" }
       })
