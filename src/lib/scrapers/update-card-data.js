@@ -105,7 +105,7 @@ Extraction Rules (Strict Compliance Required):
    - "value_paise" fields must be the actual value in Paise (e.g., 100 paise = 1 Rupee).
 2. Capped Categories vs Exclusions (CRITICAL): If a category (like Utilities, Insurance, Education, or Rent) earns reward points up to a monthly/statement cap (e.g., "capped at 3,000 points" or "points on first 3000 points, after which 0 points"), DO NOT put it in the "excluded_mcc" array. The "excluded_mcc" array is strictly for categories that earn exactly 0 points from the very first rupee (like Fuel, or completely barred spends).
 3. Narrative Fields: Put human-readable descriptions of any reward capping or complex earning rules (e.g., "Utilities and Insurance capped at 3,000 RP/month, thereafter 0") inside the "earn_base_rate" field so they display accurately on the frontend.
-4. Golf Benefits: Accurately extract the total number of complimentary golf rounds or lessons provided per year into the "golf_rounds_per_year" field based on the live data context. If it offers unlimited or a specific number, provide that integer. If none, provide null or 0.
+4. Golf Benefits: Accurately extract the total number of complimentary golf rounds or lessons provided per year into the "golf_rounds_per_year" field. CRITICAL: If this is a "Relationship Card" (like HSBC Premier) where the golf benefits are tied to the underlying premium bank account rather than the credit card itself, YOU MUST include those account-level golf benefits here (e.g., if the account offers 24 rounds, output 24). If none exist, provide 0.
 
 Output ONLY a valid JSON object matching this exact schema:
 {
