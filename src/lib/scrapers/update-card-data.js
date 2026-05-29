@@ -5,7 +5,7 @@ const WebSocket = require('ws');
 
 dotenv.config({ path: path.resolve(__dirname, '../../../.env.local') });
 
-// Verify API Keys (Switched from Groq to GitHub Models for OpenAI)
+// Verify API Keys (Using GitHub Models for OpenAI GPT-4o)
 const GITHUB_TOKEN = process.env.GH_MODELS_TOKEN || process.env.GITHUB_TOKEN;
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -29,7 +29,7 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 // ==========================================
 // UTILITY: SAFE JSON PARSER
 // ==========================================
-// GPT-4o frequently wraps JSON in markdown backticks. This strips them.
+// GPT-4o frequently wraps JSON in markdown backticks. This strips them safely.
 function parseSafeJSON(rawStr) {
   try {
     let clean = rawStr.trim();
