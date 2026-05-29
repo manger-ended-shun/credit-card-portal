@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { createClient } from '@supabase/supabase-js';
 import { notFound } from 'next/navigation';
 import { Shield, Plane, Gift, ArrowRightLeft, AlertCircle, Star, ThumbsUp, ThumbsDown } from 'lucide-react';
