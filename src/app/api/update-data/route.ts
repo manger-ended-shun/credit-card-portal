@@ -1,13 +1,10 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// ADD THIS LINE TO PREVENT CACHING
+// 🟢 Keep this to prevent build-time rendering
 export const dynamic = 'force-dynamic';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { NextResponse } from 'next/server';
+// 🟢 Import the perfectly working client we already fixed!
+// (Update the path to '@/utils/supabase' if your file is in a utils folder)
+import { supabase } from '@/lib/supabase'; 
 
 export async function GET(request: Request) {
   try {
@@ -19,14 +16,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: false, error: "Missing parameters" }, { status: 400 });
     }
 
-    // Directly query the Supabase database
+    // Directly query the Supabase database using the imported client
     const { data: dbData, error } = await supabase
       .from('flight_routes')
       .select('*')
       .eq('origin', origin)
       .eq('dest', dest);
 
-    // Debugging log: This will print directly in your VS Code / GitHub Codespaces terminal
+    // Debugging log: Prints in your terminal
     console.log(`[API Debug] Searched ${origin} to ${dest}. Found ${dbData?.length || 0} results. Error:`, error?.message || 'None');
 
     if (error) {
