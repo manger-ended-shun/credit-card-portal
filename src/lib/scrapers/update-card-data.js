@@ -206,7 +206,7 @@ Output ONLY a valid JSON object matching this exact schema:
 `;
 
   try {
-    const response = await fetch('[https://models.inference.ai.azure.com/chat/completions](https://models.inference.ai.azure.com/chat/completions)', {
+    const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
