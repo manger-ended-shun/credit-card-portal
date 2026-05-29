@@ -12,7 +12,7 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!GITHUB_TOKEN || !SUPABASE_URL || !SUPABASE_KEY || !TAVILY_API_KEY) {
-  console.error("🚨 FATAL ERROR: Missing environment variables. Ensure GITHUB_ACTIONS_TOKEN, TAVILY, and SUPABASE keys are set.");
+  console.error("🚨 FATAL ERROR: Missing environment variables. Ensure GH_MODELS_TOKEN, TAVILY, and SUPABASE keys are set.");
   process.exit(1);
 }
 
@@ -27,12 +27,30 @@ const supabase = createClient(
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // ==========================================
+// UTILITY: SAFE JSON PARSER
+// ==========================================
+// GPT-4o frequently wraps JSON in markdown backticks. This strips them.
+function parseSafeJSON(rawStr) {
+  try {
+    let clean = rawStr.trim();
+    if (clean.startsWith('```json')) clean = clean.substring(7);
+    if (clean.startsWith('```')) clean = clean.substring(3);
+    if (clean.endsWith('```')) clean = clean.substring(0, clean.length - 3);
+    return JSON.parse(clean.trim());
+  } catch (e) {
+    console.error("🚨 JSON Parse Error:", e.message);
+    console.error("Raw string was:", rawStr.substring(0, 200) + "...");
+    return null;
+  }
+}
+
+// ==========================================
 // RAG SEARCH AGENT
 // ==========================================
 async function searchLiveWeb(bankName, cardName) {
   console.log(`🔍 Searching live web for current data: ${cardName}...`);
   try {
-    const response = await fetch('https://api.tavily.com/search', {
+    const response = await fetch('[https://api.tavily.com/search](https://api.tavily.com/search)', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -60,7 +78,7 @@ async function searchLiveWeb(bankName, cardName) {
 async function getCardsForBank(bankName) {
   console.log(`\n🕵️ Scouting active cards for: ${bankName}...`);
   try {
-    const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+    const response = await fetch('[https://models.inference.ai.azure.com/chat/completions](https://models.inference.ai.azure.com/chat/completions)', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -82,8 +100,11 @@ async function getCardsForBank(bankName) {
       return [];
     }
     
-    return JSON.parse(data.choices[0].message.content).cards || [];
+    const parsed = parseSafeJSON(data.choices[0].message.content);
+    return parsed ? parsed.cards || [] : [];
+
   } catch (e) {
+    console.error(`⚠️ Error scouting cards for ${bankName}:`, e.message);
     return [];
   }
 }
@@ -185,7 +206,7 @@ Output ONLY a valid JSON object matching this exact schema:
 `;
 
   try {
-    const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+    const response = await fetch('[https://models.inference.ai.azure.com/chat/completions](https://models.inference.ai.azure.com/chat/completions)', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -198,12 +219,14 @@ Output ONLY a valid JSON object matching this exact schema:
     
     const data = await response.json();
     if (!response.ok) {
-      console.error(`🚨 GitHub Models API Error (${response.status}):`, JSON.stringify(data));
+      console.error(`🚨 Deep Dive API Error (${response.status}):`, JSON.stringify(data));
       return null;
     }
 
-    return JSON.parse(data.choices[0].message.content);
+    return parseSafeJSON(data.choices[0].message.content);
+
   } catch (e) {
+    console.error(`⚠️ Error extracting details for ${cardName}:`, e.message);
     return null;
   }
 }
