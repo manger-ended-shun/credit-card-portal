@@ -116,10 +116,18 @@ async function getActiveBanks() {
       body: JSON.stringify({
         model: "gpt-4o",
         messages: [
-          { role: "system", content: "You are a master financial directory AI for the Indian credit card ecosystem." },
-          { role: "user", content: `List all major active consumer credit card issuing banks and financial institutions in India right now. 
-            Include private banks, public sector banks, foreign banks, and small finance banks (e.g., HDFC Bank, SBI Card, Axis Bank, ICICI Bank, American Express, IDFC First Bank, AU Small Finance, etc.).
-            Output ONLY a valid JSON object with a single key "banks" containing an array of strings.` }
+          { 
+            role: "system", 
+            content: "You are a master financial directory AI for the Indian credit card ecosystem." 
+          },
+          { 
+            role: "user", 
+            // 🟢 FIX: Added strict exclusion rules for corporate banks and exited portfolios
+            content: `List all major active consumer credit card issuing banks and financial institutions in India right now. 
+            Include private banks, public sector banks, and small finance banks (e.g., HDFC Bank, SBI Card, Axis Bank, ICICI Bank, American Express, IDFC First Bank, AU Small Finance, etc.).
+            CRITICAL EXCLUSIONS: You MUST NOT include corporate-only banks, investment banks, or banks that have exited the Indian retail credit card market. Strictly EXCLUDE Citi Bank, Deutsche Bank, Bank of America, Barclays Bank, and JPMorgan Chase Bank.
+            Output ONLY a valid JSON object with a single key "banks" containing an array of strings.` 
+          }
         ],
         response_format: { type: "json_object" },
         temperature: 0.1
