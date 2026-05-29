@@ -1,0 +1,29 @@
+name: Daily Offers Scraper
+
+on:
+  schedule:
+    # Runs automatically at 00:00 UTC every day
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allows you to manually click a "Run" button in the GitHub Actions UI
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22' # Matches your current Codespaces environment
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Scraper Script
+        env:
+          # Pulls the keys securely from your GitHub Repository Secrets
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/scrape-offers.ts
