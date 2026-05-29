@@ -50,7 +50,7 @@ function parseSafeJSON(rawStr) {
 async function searchLiveWeb(bankName, cardName) {
   console.log(`🔍 Searching live web for current data: ${cardName}...`);
   try {
-    const response = await fetch('[https://api.tavily.com/search](https://api.tavily.com/search)', {
+    const response = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
