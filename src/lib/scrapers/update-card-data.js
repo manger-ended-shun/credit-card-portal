@@ -83,12 +83,19 @@ async function getCardsForBank(bankName) {
       headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: "gpt-4o",
-        messages: [{
-          role: "system",
-          content: `You are a financial directory. List all active, currently issued consumer credit cards offered by ${bankName} in India as of May 2026. Exclude closed/deprecated cards, commercial cards, and debit cards. 
-          CRITICAL: Ensure you explicitly list popular specific premium variants (e.g., "HDFC Bank Regalia Gold Credit Card", "HDFC Bank Infinia Metal Edition").
-          Output ONLY a valid JSON object with a single key "cards" containing an array of strings.`
-        }],
+        // 🟢 FIX: Split into System and User roles so GPT-4o actually answers
+        messages: [
+          { 
+            role: "system", 
+            content: "You are a master financial directory AI for the Indian credit card ecosystem." 
+          },
+          { 
+            role: "user", 
+            content: `List all active, currently issued consumer credit cards offered by ${bankName} in India. Exclude closed/deprecated cards, commercial cards, and debit cards. 
+            CRITICAL: Ensure you explicitly list popular specific premium variants (e.g., "HDFC Bank Regalia Gold Credit Card", "HDFC Bank Infinia Metal Edition").
+            Output ONLY a valid JSON object with a single key "cards" containing an array of strings.` 
+          }
+        ],
         response_format: { type: "json_object" },
         temperature: 0.1
       })
@@ -100,7 +107,11 @@ async function getCardsForBank(bankName) {
       return [];
     }
     
-    const parsed = parseSafeJSON(data.choices[0].message.content);
+    // 🟢 FIX: X-Ray log to see EXACTLY what GPT-4o generated before we parse it
+    const rawContent = data.choices[0].message.content;
+    console.log(`🤖 Raw AI Response for ${bankName}:`, rawContent); 
+    
+    const parsed = parseSafeJSON(rawContent);
     return parsed ? parsed.cards || [] : [];
 
   } catch (e) {
