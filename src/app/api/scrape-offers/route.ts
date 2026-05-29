@@ -1,14 +1,16 @@
-// src/app/api/scrape-offers/route.ts
+// 🟢 1. This prevents the "Export encountered errors" crash during static generation
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+// 🟢 2. Import the safe, build-protected Admin client we already created
+import { supabaseAdmin } from '@/lib/supabase';
 import { scrapeRSS, isRelevantOffer } from '@/lib/scrapers/engine';
 import { scrapeNetworkPortal } from '@/lib/scrapers/networkPortals';
 
 export async function GET() {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  // 🟢 3. Safely assign the admin client to your local 'supabase' variable 
+  // so the rest of your code works perfectly without changes.
+  const supabase = supabaseAdmin!;
 
   // Core execution limit to prevent rate-throttling blocks
   const { data: lastRun } = await supabase
