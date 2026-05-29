@@ -1,66 +1,73 @@
-// test-db.js
-const dotenv = require('dotenv');
-dotenv.config({ path: '.env.local' });
- 
-const { createClient } = require('@supabase/supabase-js');
- 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
- 
-console.log('🔍 Environment Variables:');
-console.log('  URL:', supabaseUrl ? '✅ Set' : '❌ Missing');
-console.log('  Key:', supabaseKey ? '✅ Set' : '❌ Missing');
-console.log();
- 
-const supabase = createClient(supabaseUrl, supabaseKey);
- 
-async function testDatabase() {
-  console.log('🔍 Testing Database Connection...\n');
- 
-  try {
-    // Test 1: Try to query cards table
-    console.log('📋 Testing cards table...');
-    const { data: cards, error: cardsError } = await supabase
-      .from('cards')
-      .select('count')
-      .single();
- 
-    if (cardsError) {
-      console.log('⚠️  Cards table query failed:', cardsError.message);
-    } else {
-      console.log('✅ Cards table exists! Total cards:', cards.count);
+import { createClient } from '@supabase/supabase-js';
+import { AWARD_CHARTS, Zone } from './awardCharts'; 
+
+// 🟢 FIX: Updated to use NEXT_PUBLIC_SUPABASE_URL so it matches your other files perfectly!
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+async function runScraper() {
+  console.log("Starting Award Chart Sync...");
+  
+  // The fully expanded list of popular routes
+  const routes: { origin: string, dest: string, zone: Zone }[] = [
+    { origin: 'DEL', dest: 'BOM', zone: 'domestic_india' },
+    { origin: 'DEL', dest: 'BLR', zone: 'domestic_india' },
+    { origin: 'DEL', dest: 'HYD', zone: 'domestic_india' },
+    { origin: 'DEL', dest: 'MAA', zone: 'domestic_india' },
+    { origin: 'DEL', dest: 'CCU', zone: 'domestic_india' },
+    { origin: 'BOM', dest: 'BLR', zone: 'domestic_india' },
+    { origin: 'BOM', dest: 'HYD', zone: 'domestic_india' },
+    { origin: 'BOM', dest: 'MAA', zone: 'domestic_india' },
+    { origin: 'BOM', dest: 'CCU', zone: 'domestic_india' },
+    { origin: 'DEL', dest: 'DXB', zone: 'middle_east_africa' },
+    { origin: 'BOM', dest: 'DXB', zone: 'middle_east_africa' },
+    { origin: 'DEL', dest: 'DOH', zone: 'middle_east_africa' },
+    { origin: 'BOM', dest: 'DOH', zone: 'middle_east_africa' },
+    { origin: 'DEL', dest: 'AUH', zone: 'middle_east_africa' },
+    { origin: 'DEL', dest: 'LHR', zone: 'europe' },
+    { origin: 'BOM', dest: 'LHR', zone: 'europe' },
+    { origin: 'DEL', dest: 'FRA', zone: 'europe' },
+    { origin: 'DEL', dest: 'CDG', zone: 'europe' },
+    { origin: 'DEL', dest: 'ZRH', zone: 'europe' },
+    { origin: 'DEL', dest: 'JFK', zone: 'north_america' },
+    { origin: 'DEL', dest: 'SFO', zone: 'north_america' },
+    { origin: 'DEL', dest: 'ORD', zone: 'north_america' },
+    { origin: 'BOM', dest: 'JFK', zone: 'north_america' },
+    { origin: 'DEL', dest: 'SIN', zone: 'south_asia' },
+    { origin: 'BOM', dest: 'SIN', zone: 'south_asia' },
+    { origin: 'DEL', dest: 'SYD', zone: 'australia_pacific' },
+    { origin: 'BOM', dest: 'MEL', zone: 'australia_pacific' },
+  ];
+
+  for (const route of routes) {
+    for (const [airline, zones] of Object.entries(AWARD_CHARTS)) {
+      const data = zones[route.zone];
+      
+      // Skip if data is undefined or if the airline doesn't operate this route (points = 0)
+      if (!data || data.economy === 0) continue;
+
+      const payload = {
+        origin: route.origin,
+        dest: route.dest,
+        flight_class: 'Economy',
+        partner: data.partner,
+        program: data.program,
+        ratio: data.ratio,
+        points: data.economy.toString(),
+        taxes: '₹2000', 
+        description: data.description,
+        tags: JSON.stringify(data.tags)
+      };
+
+      const { error } = await supabase.from('flight_routes').upsert(payload, { 
+        onConflict: 'origin,dest,flight_class,partner' 
+      });
+      
+      if (error) console.error(`Error syncing ${airline} for ${route.origin}-${route.dest}:`, error);
     }
- 
-    // Test 2: Try to query offers table
-    console.log('\n📋 Testing offers table...');
-    const { data: offers, error: offersError } = await supabase
-      .from('offers')
-      .select('count')
-      .single();
- 
-    if (offersError) {
-      console.log('⚠️  Offers table query failed:', offersError.message);
-    } else {
-      console.log('✅ Offers table exists! Total offers:', offers.count);
-    }
- 
-    // Test 3: Try to query banks table
-    console.log('\n📋 Testing banks table...');
-    const { data: banks, error: banksError } = await supabase
-      .from('banks')
-      .select('count')
-      .single();
- 
-    if (banksError) {
-      console.log('⚠️  Banks table query failed:', banksError.message);
-    } else {
-      console.log('✅ Banks table exists! Total banks:', banks.count);
-    }
- 
-    console.log('\n✅ Database connection successful!');
-  } catch (error) {
-    console.error('❌ Database connection failed:', error);
   }
+  console.log("Sync complete.");
 }
- 
-testDatabase();
+
+runScraper();

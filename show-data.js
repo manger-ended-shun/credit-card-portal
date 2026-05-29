@@ -1,11 +1,20 @@
 // show-data.js
 const dotenv = require('dotenv');
-dotenv.config({ path: '.env.local' });
+const path = require('path');
+
+// Dynamically resolves to the root .env.local file regardless of where this script lives
+dotenv.config({ path: path.resolve(__dirname, '.env.local') });
  
 const { createClient } = require('@supabase/supabase-js');
  
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+// Fail gracefully if the environment variables aren't loaded properly
+if (!supabaseUrl || !supabaseKey) {
+  console.error("🚨 FATAL ERROR: Missing Supabase credentials. Check your .env.local path.");
+  process.exit(1);
+}
  
 const supabase = createClient(supabaseUrl, supabaseKey);
  
@@ -26,10 +35,10 @@ async function showData() {
       console.log(JSON.stringify(cards, null, 2));
     }
  
-    // Show Offers
+    // Show Offers (🟢 FIXED: Changed 'offers' to 'card_offers' to match your frontend!)
     console.log('\n📋 OFFERS:');
     const { data: offers, error: offersError } = await supabase
-      .from('offers')
+      .from('card_offers') 
       .select('*')
       .limit(5);
  
