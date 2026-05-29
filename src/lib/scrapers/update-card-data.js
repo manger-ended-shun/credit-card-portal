@@ -29,7 +29,6 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 // ==========================================
 // UTILITY: SAFE JSON PARSER
 // ==========================================
-// GPT-4o frequently wraps JSON in markdown backticks. This strips them safely.
 function parseSafeJSON(rawStr) {
   try {
     let clean = rawStr.trim();
@@ -50,15 +49,15 @@ function parseSafeJSON(rawStr) {
 async function searchLiveWeb(bankName, cardName) {
   console.log(`🔍 Searching live web for current data: ${cardName}...`);
   try {
-    const response = await fetch('https://api.tavily.com/search', {
+    const response = await fetch('[https://api.tavily.com/search](https://api.tavily.com/search)', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         api_key: TAVILY_API_KEY,
-        query: `${bankName} ${cardName} credit card annual fee exact amount, SmartBuy airline hotel transfer partners conversion ratios India`,
+        query: `${bankName} ${cardName} credit card annual fee, domestic international lounge access limit, golf rounds, minimum income requirement, full exhaustive list of airline hotel transfer partners and exact conversion ratios India`,
         search_depth: "basic",
         include_answer: false,
-        max_results: 4
+        max_results: 6
       })
     });
     
@@ -73,12 +72,12 @@ async function searchLiveWeb(bankName, cardName) {
 }
 
 // ==========================================
-// SCOUT PHASE 1: ACTIVE BANKS (Using GPT-4o)
+// SCOUT PHASE 1: ACTIVE BANKS
 // ==========================================
 async function getActiveBanks() {
   console.log(`\n🏦 AI is scouting for all active credit card issuers in India...`);
   try {
-    const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+    const response = await fetch('[https://models.inference.ai.azure.com/chat/completions](https://models.inference.ai.azure.com/chat/completions)', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -100,6 +99,13 @@ async function getActiveBanks() {
       })
     });
     
+    // 🟢 FIX: Catch 429 Rate Limits and Auto-Retry
+    if (response.status === 429) {
+      console.warn(`⏳ Rate limit hit during Bank Scout. Sleeping for 60 seconds...`);
+      await sleep(60000);
+      return getActiveBanks();
+    }
+
     const data = await response.json();
     if (!response.ok) {
       console.error(`🚨 Bank Scout API Error (${response.status}):`, JSON.stringify(data));
@@ -116,15 +122,17 @@ async function getActiveBanks() {
   }
 }
 
+// ==========================================
+// SCOUT PHASE 2: CARDS PER BANK
+// ==========================================
 async function getCardsForBank(bankName) {
   console.log(`\n🕵️ Scouting active cards for: ${bankName}...`);
   try {
-    const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+    const response = await fetch('[https://models.inference.ai.azure.com/chat/completions](https://models.inference.ai.azure.com/chat/completions)', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: "gpt-4o",
-        // 🟢 FIX: Split into System and User roles so GPT-4o actually answers
         messages: [
           { 
             role: "system", 
@@ -142,16 +150,20 @@ async function getCardsForBank(bankName) {
       })
     });
     
+    // 🟢 FIX: Catch 429 Rate Limits and Auto-Retry
+    if (response.status === 429) {
+      console.warn(`⏳ Rate limit hit scouting cards for ${bankName}. Sleeping for 60 seconds...`);
+      await sleep(60000);
+      return getCardsForBank(bankName);
+    }
+
     const data = await response.json();
     if (!response.ok) {
       console.error(`🚨 GitHub Models API Error (${response.status}):`, JSON.stringify(data));
       return [];
     }
     
-    // 🟢 FIX: X-Ray log to see EXACTLY what GPT-4o generated before we parse it
     const rawContent = data.choices[0].message.content;
-    console.log(`🤖 Raw AI Response for ${bankName}:`, rawContent); 
-    
     const parsed = parseSafeJSON(rawContent);
     return parsed ? parsed.cards || [] : [];
 
@@ -162,7 +174,7 @@ async function getCardsForBank(bankName) {
 }
 
 // ==========================================
-// DEEP DIVE PHASE (Grounded with Live Data)
+// DEEP DIVE PHASE
 // ==========================================
 async function extractCardDetails(bankName, cardName, liveContext) {
   console.log(`📄 Deep Dive Extraction (GPT-4o Grounded): ${cardName}`);
@@ -179,16 +191,17 @@ ${liveContext}
 
 Extraction Rules (Strict Compliance Required):
 1. THE THOUGHT PROCESS (MANDATORY): You MUST start your JSON with a "_thought_process" key. In this string, you must:
-   - Explicitly identify the base annual fee for EXACTLY the ${cardName}. Do NOT use the 10,000 fee from Diners Black or Infinia. Do not confuse 10,000 milestone bonus points with the fee (e.g. Regalia and Regalia Gold typically have a base fee of 2500).
-   - Search the text for transfer partners (e.g., Singapore Airlines KrisFlyer, Air France/KLM, Marriott) and note their ratios (like 2:1 or 100:50). HDFC SmartBuy has many partners for Regalia variants!
-2. Currency & Numbers Handling: All fee and limit fields must be raw integers in INR (e.g., 2500). 
-3. Transfer Partners & SQL Length Limits: "airline_transfer_ratio", "hotel_transfer_ratio", and "reward_program_name" MUST BE STRICTLY UNDER 50 CHARACTERS. (e.g., output "2:1" or "100 RP = 50 Miles"). Put the full descriptive list of airlines/hotels in the "transfer_partners" field.
-4. Schema Integrity (FATAL): Output ONLY the exact keys listed in the schema below.
-5. Arrays: "partner_airlines" and "excluded_mcc" must strictly be flat arrays of strings. 
+   - Identify the base annual fee.
+   - Actively search the text for lounge access counts, golf limits, and minimum monthly income.
+   - Identify the EXHAUSTIVE list of individual transfer partners.
+2. Transfer Partners (NO SUMMARIZING): In the "transfer_partners" field, DO NOT write "16 airline partners". You MUST extract and list EVERY specific airline and hotel name found in the text along with its exact transfer ratio.
+3. Currency & Numbers Handling: All fee, income, and limit fields must be raw integers.
+4. Schema Integrity & SQL Limits: "airline_transfer_ratio", "hotel_transfer_ratio", and "reward_program_name" MUST BE STRICTLY UNDER 50 CHARACTERS. Output ONLY the exact keys listed below.
+5. Arrays: "partner_airlines" and "excluded_mcc" must strictly be flat arrays of strings.
 
 Output ONLY a valid JSON object matching this exact schema:
 {
-  "_thought_process": "string (Your step-by-step reasoning for finding the exact annual fee and transfer partners for this specific card before you output the numbers)",
+  "_thought_process": "string",
   "bank_name": "${bankName}",
   "card_name": "${cardName}",
   "card_type": "string or null",
@@ -258,7 +271,7 @@ Output ONLY a valid JSON object matching this exact schema:
 `;
 
   try {
-    const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+    const response = await fetch('[https://models.inference.ai.azure.com/chat/completions](https://models.inference.ai.azure.com/chat/completions)', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -269,6 +282,13 @@ Output ONLY a valid JSON object matching this exact schema:
       })
     });
     
+    // 🟢 FIX: Catch 429 Rate Limits and Auto-Retry
+    if (response.status === 429) {
+      console.warn(`⏳ Rate limit hit extracting ${cardName}. Sleeping for 60 seconds...`);
+      await sleep(60000);
+      return extractCardDetails(bankName, cardName, liveContext);
+    }
+
     const data = await response.json();
     if (!response.ok) {
       console.error(`🚨 Deep Dive API Error (${response.status}):`, JSON.stringify(data));
@@ -287,7 +307,6 @@ Output ONLY a valid JSON object matching this exact schema:
 // ORCHESTRATION PIPELINE
 // ==========================================
 async function main() {
-  // 🟢 FIX: Dynamically generate the list of banks instead of hardcoding
   const targetBanks = await getActiveBanks();
   
   if (targetBanks.length === 0) {
@@ -301,7 +320,10 @@ async function main() {
     const cards = await getCardsForBank(bank);
     console.log(`✅ Found ${cards.length} cards for ${bank}.`);
 
-    if (cards.length === 0) continue;
+    if (cards.length === 0) {
+      await sleep(10000); // Small buffer before hitting the next bank
+      continue;
+    }
 
     for (const cardName of cards) {
       const liveContext = await searchLiveWeb(bank, cardName);
@@ -329,7 +351,7 @@ async function main() {
         }
       }
       
-      console.log('⏳ Pausing for 15 seconds to respect rate limits...');
+      console.log('⏳ Pausing for 15 seconds to respect standard rate limits...');
       await sleep(15000); 
     }
   }
