@@ -73,8 +73,49 @@ async function searchLiveWeb(bankName, cardName) {
 }
 
 // ==========================================
-// SCOUT PHASE (Using GitHub Models / GPT-4o)
+// SCOUT PHASE 1: ACTIVE BANKS (Using GPT-4o)
 // ==========================================
+async function getActiveBanks() {
+  console.log(`\n🏦 AI is scouting for all active credit card issuers in India...`);
+  try {
+    const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [
+          { 
+            role: "system", 
+            content: "You are a master financial directory AI for the Indian credit card ecosystem." 
+          },
+          { 
+            role: "user", 
+            content: `List all major active consumer credit card issuing banks and financial institutions in India right now. 
+            Include private banks, public sector banks, foreign banks, and small finance banks (e.g., HDFC Bank, SBI Card, Axis Bank, ICICI Bank, American Express, IDFC First Bank, AU Small Finance, etc.).
+            Output ONLY a valid JSON object with a single key "banks" containing an array of strings.` 
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.1
+      })
+    });
+    
+    const data = await response.json();
+    if (!response.ok) {
+      console.error(`🚨 Bank Scout API Error (${response.status}):`, JSON.stringify(data));
+      return [];
+    }
+    
+    const rawContent = data.choices[0].message.content;
+    const parsed = parseSafeJSON(rawContent);
+    return parsed ? parsed.banks || [] : [];
+
+  } catch (e) {
+    console.error(`⚠️ Error scouting banks:`, e.message);
+    return [];
+  }
+}
+
 async function getCardsForBank(bankName) {
   console.log(`\n🕵️ Scouting active cards for: ${bankName}...`);
   try {
@@ -246,11 +287,15 @@ Output ONLY a valid JSON object matching this exact schema:
 // ORCHESTRATION PIPELINE
 // ==========================================
 async function main() {
-  const targetBanks = [
-    "HDFC Bank",
-    "SBI Card",
-    "HSBC India"
-  ];
+  // 🟢 FIX: Dynamically generate the list of banks instead of hardcoding
+  const targetBanks = await getActiveBanks();
+  
+  if (targetBanks.length === 0) {
+    console.error("🚨 AI failed to identify any banks. Aborting pipeline.");
+    process.exit(1);
+  }
+  
+  console.log(`🏦 AI identified ${targetBanks.length} card issuers to process:`, targetBanks.join(', '));
 
   for (const bank of targetBanks) {
     const cards = await getCardsForBank(bank);
