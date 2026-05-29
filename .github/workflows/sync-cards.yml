@@ -2,7 +2,7 @@ name: Weekly Card Data Sync
 
 on:
   schedule:
-    - cron: '0 0 * * 0' # Runs at 00:00 every Sunday
+    - cron: '0 0 * * *' # Runs at 00:00 every Sunday
   workflow_dispatch: # Allows you to trigger it manually from the GitHub UI
 
 jobs:
