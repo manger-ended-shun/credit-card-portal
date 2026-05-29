@@ -1,14 +1,11 @@
-import { createClient } from '@supabase/supabase-js';
+// 🟢 1. Import the safe client instead of createClient
+import { supabase } from '@/lib/supabase';
 import { ArrowRight } from 'lucide-react';
 
 // Force the page to be dynamic (disable caching)
 export const dynamic = 'force-dynamic';
 
-// Initialize Supabase (Server-side)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// 🟢 2. The local createClient block is DELETED!
 
 export default async function OffersPage() {
   const { data: offers, error } = await supabase
@@ -16,7 +13,7 @@ export default async function OffersPage() {
     .select('*')
     .order('created_at', { ascending: false });
 
-console.log("DEBUG: Number of offers fetched from DB:", offers?.length);
+  console.log("DEBUG: Number of offers fetched from DB:", offers?.length);
 
   if (error) {
     return <div className="p-10 text-rose-600 font-semibold">Error loading data: {error.message}</div>;
