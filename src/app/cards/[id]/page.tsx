@@ -61,4 +61,90 @@ export default async function CardDetailPage({ params }: { params: { id: string 
         {/* Perks Section */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
           <h2 className="text-xl font-bold text-slate-900 mb-6">Lifestyle Perks</h2>
-          <div
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <PerkStat label="Domestic Lounge" value={card.domestic_lounge_access === 99 ? 'Unlimited' : card.domestic_lounge_access} icon={<Plane />} />
+            <PerkStat label="Intl. Lounge" value={card.international_lounge_access === 99 ? 'Unlimited' : card.international_lounge_access} icon={<Plane />} />
+            <PerkStat label="Golf Rounds" value={card.golf_access === 99 ? 'Unlimited' : card.golf_access} icon={<span className="text-2xl">⛳</span>} />
+            <PerkStat label="Insurance" value={card.air_accident_insurance ? 'Included' : '-'} icon={<Shield />} />
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+// ---------------- UI Helper Components ----------------
+
+interface SemanticCardProps {
+  title: string;
+  text: string | null;
+  type: 'pro' | 'con' | 'neutral';
+  icon: React.ReactNode;
+}
+
+function SemanticCard({ title, text, type, icon }: SemanticCardProps) {
+  if (!text || text === '-') return null;
+
+  const styles = {
+    pro: "bg-emerald-50/50 border-emerald-200",
+    con: "bg-rose-50/50 border-rose-200",
+    neutral: "bg-white border-slate-200"
+  };
+
+  const textColors = {
+    pro: "text-emerald-900",
+    con: "text-rose-900",
+    neutral: "text-slate-900"
+  };
+
+  const iconColors = {
+    pro: "text-emerald-600",
+    con: "text-rose-600",
+    neutral: "text-blue-600"
+  };
+
+  const formatTextToLines = (rawText: string) => {
+    const formatted = rawText
+      .replace(/;\s+/g, '\n')
+      .replace(/\.\s+/g, '\n')
+      .replace(/,\s+/g, '\n')
+      .replace(/[;.,]$/, ''); 
+    return formatted.split('\n').filter(line => line.trim().length > 0);
+  };
+
+  const lines = formatTextToLines(text);
+
+  return (
+    <div className={`p-6 rounded-2xl border ${styles[type]} shadow-sm transition-all hover:shadow-md h-full flex flex-col`}>
+      <div className="flex items-center gap-3 mb-4">
+        <span className={iconColors[type]}>{icon}</span>
+        <h3 className={`font-bold ${textColors[type]}`}>{title}</h3>
+      </div>
+      <div className="flex flex-col gap-2 flex-grow">
+        {lines.map((line: string, idx: number) => (
+          <div key={idx} className="flex items-start gap-2">
+            <span className={`mt-0.5 text-lg leading-none ${type === 'neutral' ? 'text-slate-300' : iconColors[type]}`}>•</span>
+            <span className="text-sm text-slate-700 leading-relaxed font-medium opacity-90">{line.trim()}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface PerkStatProps {
+  label: string;
+  value: string | number | null;
+  icon: React.ReactNode;
+}
+
+function PerkStat({ label, value, icon }: PerkStatProps) {
+  return (
+    <div className="flex flex-col items-center text-center p-4 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100 transition-colors">
+      <div className="text-slate-400 mb-3 h-6 w-6 flex items-center justify-center">{icon}</div>
+      <p className="font-bold text-lg text-slate-900">{value}</p>
+      <p className="text-xs text-slate-500 mt-1 uppercase tracking-wider font-semibold">{label}</p>
+    </div>
+  );
+}
