@@ -78,7 +78,7 @@ async function searchLiveWeb(bankName, cardName) {
 async function getCardsForBank(bankName) {
   console.log(`\n🕵️ Scouting active cards for: ${bankName}...`);
   try {
-    const response = await fetch('[https://models.inference.ai.azure.com/chat/completions](https://models.inference.ai.azure.com/chat/completions)', {
+    const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
