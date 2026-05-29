@@ -6,7 +6,7 @@ const WebSocket = require('ws');
 dotenv.config({ path: path.resolve(__dirname, '../../../.env.local') });
 
 // Verify API Keys (Switched from Groq to GitHub Models for OpenAI)
-const GITHUB_TOKEN = process.env.GITHUB_ACTIONS_TOKEN || process.env.GITHUB_TOKEN;
+const GITHUB_TOKEN = process.env.GH_MODELS_TOKEN || process.env.GITHUB_TOKEN;
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
