@@ -1,9 +1,8 @@
 const dotenv = require('dotenv');
-const fs = require('fs');
 const path = require('path');
 const WebSocket = require('ws'); 
 
-// 🟢 Splitting strings so your editor cannot auto-format them into markdown links!
+// Splitting strings so your editor cannot auto-format them into markdown links!
 const AI_URL = 'https://' + 'models.inference.ai.azure.com' + '/chat/completions';
 const TAVILY_URL = 'https://' + 'api.tavily.com' + '/search';
 
@@ -42,8 +41,38 @@ function parseSafeJSON(rawStr) {
     return JSON.parse(clean.trim());
   } catch (e) {
     console.error("🚨 JSON Parse Error:", e.message);
-    console.error("Raw string was:", rawStr.substring(0, 200) + "...");
     return null;
+  }
+}
+
+// ==========================================
+// DB CHECK: AVOID REDUNDANT API CALLS
+// ==========================================
+// 🟢 FIX: Check if the card is already in the DB and updated within the last 10 days
+async function checkIfCardNeedsUpdate(cardName) {
+  try {
+    const { data, error } = await supabase
+      .from('cards')
+      .select('last_updated')
+      .eq('card_name', cardName)
+      .single();
+
+    // If it doesn't exist, we definitely need to scrape it
+    if (error || !data) return true;
+
+    const lastUpdatedDate = new Date(data.last_updated);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 10);
+
+    // If it was updated more recently than 30 days ago, it's fresh. Skip it!
+    if (lastUpdatedDate > thirtyDaysAgo) {
+      return false; 
+    }
+
+    // It's older than 30 days, needs a refresh
+    return true; 
+  } catch (e) {
+    return true; // On any DB failure, default to scraping it just in case
   }
 }
 
@@ -87,16 +116,10 @@ async function getActiveBanks() {
       body: JSON.stringify({
         model: "gpt-4o",
         messages: [
-          { 
-            role: "system", 
-            content: "You are a master financial directory AI for the Indian credit card ecosystem." 
-          },
-          { 
-            role: "user", 
-            content: `List all major active consumer credit card issuing banks and financial institutions in India right now. 
+          { role: "system", content: "You are a master financial directory AI for the Indian credit card ecosystem." },
+          { role: "user", content: `List all major active consumer credit card issuing banks and financial institutions in India right now. 
             Include private banks, public sector banks, foreign banks, and small finance banks (e.g., HDFC Bank, SBI Card, Axis Bank, ICICI Bank, American Express, IDFC First Bank, AU Small Finance, etc.).
-            Output ONLY a valid JSON object with a single key "banks" containing an array of strings.` 
-          }
+            Output ONLY a valid JSON object with a single key "banks" containing an array of strings.` }
         ],
         response_format: { type: "json_object" },
         temperature: 0.1
@@ -110,17 +133,10 @@ async function getActiveBanks() {
     }
 
     const data = await response.json();
-    if (!response.ok) {
-      console.error(`🚨 Bank Scout API Error (${response.status}):`, JSON.stringify(data));
-      return [];
-    }
+    if (!response.ok) return [];
     
-    const rawContent = data.choices[0].message.content;
-    const parsed = parseSafeJSON(rawContent);
-    return parsed ? parsed.banks || [] : [];
-
+    return parseSafeJSON(data.choices[0].message.content)?.banks || [];
   } catch (e) {
-    console.error(`⚠️ Error scouting banks:`, e.message);
     return [];
   }
 }
@@ -137,16 +153,10 @@ async function getCardsForBank(bankName) {
       body: JSON.stringify({
         model: "gpt-4o",
         messages: [
-          { 
-            role: "system", 
-            content: "You are a master financial directory AI for the Indian credit card ecosystem." 
-          },
-          { 
-            role: "user", 
-            content: `List all active, currently issued consumer credit cards offered by ${bankName} in India. Exclude closed/deprecated cards, commercial cards, and debit cards. 
+          { role: "system", content: "You are a master financial directory AI for the Indian credit card ecosystem." },
+          { role: "user", content: `List all active, currently issued consumer credit cards offered by ${bankName} in India. Exclude closed/deprecated cards, commercial cards, and debit cards. 
             CRITICAL: Ensure you explicitly list popular specific premium variants (e.g., "HDFC Bank Regalia Gold Credit Card", "HDFC Bank Infinia Metal Edition").
-            Output ONLY a valid JSON object with a single key "cards" containing an array of strings.` 
-          }
+            Output ONLY a valid JSON object with a single key "cards" containing an array of strings.` }
         ],
         response_format: { type: "json_object" },
         temperature: 0.1
@@ -160,17 +170,10 @@ async function getCardsForBank(bankName) {
     }
 
     const data = await response.json();
-    if (!response.ok) {
-      console.error(`🚨 GitHub Models API Error (${response.status}):`, JSON.stringify(data));
-      return [];
-    }
+    if (!response.ok) return [];
     
-    const rawContent = data.choices[0].message.content;
-    const parsed = parseSafeJSON(rawContent);
-    return parsed ? parsed.cards || [] : [];
-
+    return parseSafeJSON(data.choices[0].message.content)?.cards || [];
   } catch (e) {
-    console.error(`⚠️ Error scouting cards for ${bankName}:`, e.message);
     return [];
   }
 }
@@ -291,15 +294,9 @@ Output ONLY a valid JSON object matching this exact schema:
     }
 
     const data = await response.json();
-    if (!response.ok) {
-      console.error(`🚨 Deep Dive API Error (${response.status}):`, JSON.stringify(data));
-      return null;
-    }
-
+    if (!response.ok) return null;
     return parseSafeJSON(data.choices[0].message.content);
-
   } catch (e) {
-    console.error(`⚠️ Error extracting details for ${cardName}:`, e.message);
     return null;
   }
 }
@@ -328,6 +325,13 @@ async function main() {
     }
 
     for (const cardName of cards) {
+      // 🟢 FIX: The Smart Check - Do we actually need to update this right now?
+      const needsUpdate = await checkIfCardNeedsUpdate(cardName);
+      if (!needsUpdate) {
+        console.log(`⏭️ Skipping ${cardName}: Already fresh in database (updated within 30 days).`);
+        continue; // Skips immediately to the next card! No AI hit, no 60s pause!
+      }
+
       const liveContext = await searchLiveWeb(bank, cardName);
       let cardDetails = await extractCardDetails(bank, cardName, liveContext);
       
@@ -353,6 +357,7 @@ async function main() {
         }
       }
       
+      // We only pause for 60s if we actually hit the AI in this loop
       console.log('⏳ Pausing for 60 seconds to completely avoid GitHub Models rate limits...');
       await sleep(60000); 
     }
