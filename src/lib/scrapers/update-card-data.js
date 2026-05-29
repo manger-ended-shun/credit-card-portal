@@ -3,9 +3,13 @@ const fs = require('fs');
 const path = require('path');
 const WebSocket = require('ws'); 
 
+// 🟢 Splitting strings so your editor cannot auto-format them into markdown links!
+const AI_URL = 'https://' + 'models.inference.ai.azure.com' + '/chat/completions';
+const TAVILY_URL = 'https://' + 'api.tavily.com' + '/search';
+
 dotenv.config({ path: path.resolve(__dirname, '../../../.env.local') });
 
-// Verify API Keys (Using GitHub Models for OpenAI GPT-4o)
+// Verify API Keys
 const GITHUB_TOKEN = process.env.GH_MODELS_TOKEN || process.env.GITHUB_TOKEN;
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -49,7 +53,7 @@ function parseSafeJSON(rawStr) {
 async function searchLiveWeb(bankName, cardName) {
   console.log(`🔍 Searching live web for current data: ${cardName}...`);
   try {
-    const response = await fetch('[https://api.tavily.com/search](https://api.tavily.com/search)', {
+    const response = await fetch(TAVILY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -77,7 +81,7 @@ async function searchLiveWeb(bankName, cardName) {
 async function getActiveBanks() {
   console.log(`\n🏦 AI is scouting for all active credit card issuers in India...`);
   try {
-    const response = await fetch('[https://models.inference.ai.azure.com/chat/completions](https://models.inference.ai.azure.com/chat/completions)', {
+    const response = await fetch(AI_URL, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -99,7 +103,6 @@ async function getActiveBanks() {
       })
     });
     
-    // 🟢 FIX: Catch 429 Rate Limits and Auto-Retry
     if (response.status === 429) {
       console.warn(`⏳ Rate limit hit during Bank Scout. Sleeping for 60 seconds...`);
       await sleep(60000);
@@ -128,7 +131,7 @@ async function getActiveBanks() {
 async function getCardsForBank(bankName) {
   console.log(`\n🕵️ Scouting active cards for: ${bankName}...`);
   try {
-    const response = await fetch('[https://models.inference.ai.azure.com/chat/completions](https://models.inference.ai.azure.com/chat/completions)', {
+    const response = await fetch(AI_URL, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -150,7 +153,6 @@ async function getCardsForBank(bankName) {
       })
     });
     
-    // 🟢 FIX: Catch 429 Rate Limits and Auto-Retry
     if (response.status === 429) {
       console.warn(`⏳ Rate limit hit scouting cards for ${bankName}. Sleeping for 60 seconds...`);
       await sleep(60000);
@@ -271,7 +273,7 @@ Output ONLY a valid JSON object matching this exact schema:
 `;
 
   try {
-    const response = await fetch('[https://models.inference.ai.azure.com/chat/completions](https://models.inference.ai.azure.com/chat/completions)', {
+    const response = await fetch(AI_URL, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -282,7 +284,6 @@ Output ONLY a valid JSON object matching this exact schema:
       })
     });
     
-    // 🟢 FIX: Catch 429 Rate Limits and Auto-Retry
     if (response.status === 429) {
       console.warn(`⏳ Rate limit hit extracting ${cardName}. Sleeping for 60 seconds...`);
       await sleep(60000);
@@ -321,7 +322,8 @@ async function main() {
     console.log(`✅ Found ${cards.length} cards for ${bank}.`);
 
     if (cards.length === 0) {
-      await sleep(10000); // Small buffer before hitting the next bank
+      console.log('⏳ Skipping bank, pausing for 60 seconds to respect rate limits...');
+      await sleep(60000); 
       continue;
     }
 
@@ -351,8 +353,8 @@ async function main() {
         }
       }
       
-      console.log('⏳ Pausing for 15 seconds to respect standard rate limits...');
-      await sleep(15000); 
+      console.log('⏳ Pausing for 60 seconds to completely avoid GitHub Models rate limits...');
+      await sleep(60000); 
     }
   }
   
