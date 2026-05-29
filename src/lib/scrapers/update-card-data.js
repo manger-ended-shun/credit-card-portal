@@ -5,14 +5,14 @@ const WebSocket = require('ws');
 
 dotenv.config({ path: path.resolve(__dirname, '../../../.env.local') });
 
-// Verify API Keys
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
+// Verify API Keys (Switched from Groq to GitHub Models for OpenAI)
+const GITHUB_TOKEN = process.env.GITHUB_ACTIONS_TOKEN || process.env.GITHUB_TOKEN;
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!GROQ_API_KEY || !SUPABASE_URL || !SUPABASE_KEY || !TAVILY_API_KEY) {
-  console.error("🚨 FATAL ERROR: Missing environment variables. Ensure GROQ, TAVILY, and SUPABASE keys are set.");
+if (!GITHUB_TOKEN || !SUPABASE_URL || !SUPABASE_KEY || !TAVILY_API_KEY) {
+  console.error("🚨 FATAL ERROR: Missing environment variables. Ensure GITHUB_ACTIONS_TOKEN, TAVILY, and SUPABASE keys are set.");
   process.exit(1);
 }
 
@@ -55,28 +55,32 @@ async function searchLiveWeb(bankName, cardName) {
 }
 
 // ==========================================
-// SCOUT PHASE
+// SCOUT PHASE (Using GitHub Models / GPT-4o)
 // ==========================================
 async function getCardsForBank(bankName) {
   console.log(`\n🕵️ Scouting active cards for: ${bankName}...`);
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "gpt-4o",
         messages: [{
           role: "system",
           content: `You are a financial directory. List all active, currently issued consumer credit cards offered by ${bankName} in India as of May 2026. Exclude closed/deprecated cards, commercial cards, and debit cards. 
           CRITICAL: Ensure you explicitly list popular specific premium variants (e.g., "HDFC Bank Regalia Gold Credit Card", "HDFC Bank Infinia Metal Edition").
           Output ONLY a valid JSON object with a single key "cards" containing an array of strings.`
         }],
-        response_format: { type: "json_object" }
+        response_format: { type: "json_object" },
+        temperature: 0.1
       })
     });
     
     const data = await response.json();
-    if (!response.ok) return [];
+    if (!response.ok) {
+      console.error(`🚨 GitHub Models API Error (${response.status}):`, JSON.stringify(data));
+      return [];
+    }
     
     return JSON.parse(data.choices[0].message.content).cards || [];
   } catch (e) {
@@ -88,7 +92,7 @@ async function getCardsForBank(bankName) {
 // DEEP DIVE PHASE (Grounded with Live Data)
 // ==========================================
 async function extractCardDetails(bankName, cardName, liveContext) {
-  console.log(`📄 Deep Dive Extraction (Grounded): ${cardName}`);
+  console.log(`📄 Deep Dive Extraction (GPT-4o Grounded): ${cardName}`);
   
   const masterPrompt = `
 You are the Master Financial Research & Data Extraction Engine specializing in the Indian credit card ecosystem. 
@@ -181,18 +185,22 @@ Output ONLY a valid JSON object matching this exact schema:
 `;
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "gpt-4o",
         messages: [{ role: "user", content: masterPrompt }],
-        response_format: { type: "json_object" }
+        response_format: { type: "json_object" },
+        temperature: 0.1
       })
     });
     
     const data = await response.json();
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.error(`🚨 GitHub Models API Error (${response.status}):`, JSON.stringify(data));
+      return null;
+    }
 
     return JSON.parse(data.choices[0].message.content);
   } catch (e) {
@@ -221,9 +229,6 @@ async function main() {
       let cardDetails = await extractCardDetails(bank, cardName, liveContext);
       
       if (cardDetails) {
-        
-        // 🟢 FIX: The AI uses this key to think, but we must delete it before saving 
-        // to prevent a Supabase schema crash!
         if (cardDetails._thought_process) {
           console.log(`🧠 AI Reasoning for ${cardName}: ${cardDetails._thought_process.substring(0, 150)}...`);
           delete cardDetails._thought_process;
