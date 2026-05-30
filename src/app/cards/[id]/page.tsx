@@ -62,9 +62,9 @@ export default async function CardDetailPage({ params }: { params: { id: string 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
           <h2 className="text-xl font-bold text-slate-900 mb-6">Lifestyle Perks</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <PerkStat label="Domestic Lounge" value={card.domestic_lounge_access === 99 ? 'Unlimited' : card.domestic_lounge_access} icon={<Plane />} />
-            <PerkStat label="Intl. Lounge" value={card.international_lounge_access === 99 ? 'Unlimited' : card.international_lounge_access} icon={<Plane />} />
-            <PerkStat label="Golf Rounds" value={card.golf_access === 99 ? 'Unlimited' : card.golf_access} icon={<span className="text-2xl">⛳</span>} />
+            <PerkStat label="Domestic Lounge" value={card.domestic_lounge_access === 999 ? 'Unlimited' : card.domestic_lounge_access} icon={<Plane />} />
+            <PerkStat label="Intl. Lounge" value={card.international_lounge_access === 999 ? 'Unlimited' : card.international_lounge_access} icon={<Plane />} />
+            <PerkStat label="Golf Rounds" value={card.golf_access === 999 ? 'Unlimited' : card.golf_access} icon={<span className="text-2xl">⛳</span>} />
             <PerkStat label="Insurance" value={card.air_accident_insurance ? 'Included' : '-'} icon={<Shield />} />
           </div>
         </div>
@@ -104,13 +104,14 @@ function SemanticCard({ title, text, type, icon }: SemanticCardProps) {
     neutral: "text-blue-600"
   };
 
-  const formatTextToLines = (rawText: string) => {
-    const formatted = rawText
-      .replace(/;\s+/g, '\n')
-      .replace(/\.\s+/g, '\n')
-      .replace(/,\s+/g, '\n')
-      .replace(/[;.,]$/, ''); 
-    return formatted.split('\n').filter(line => line.trim().length > 0);
+const formatTextToLines = (rawText: string) => {
+    return rawText
+      // Split on explicit newlines, semicolons, or dashes that the AI might use for lists
+      .split(/(?:\n|;\s+|(?:(?<=^|\s)-\s+))/)
+      .map(line => line.trim())
+      // Remove periods at the end of isolated bullet points
+      .map(line => line.replace(/\.$/, '')) 
+      .filter(line => line.length > 0);
   };
 
   const lines = formatTextToLines(text);

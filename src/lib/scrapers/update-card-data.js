@@ -55,6 +55,10 @@ function parseSafeJSON(rawStr) {
 const cleanNumeric = (val) => {
   if (typeof val === 'number') return val;
   if (typeof val !== 'string') return null;
+  
+  // NEW: Catch "unlimited" and convert it to 999
+  if (val.toLowerCase().includes('unlimited')) return 999;
+  
   // Keeps numbers and decimals. Strips %, ₹, Rs, and spaces.
   const cleaned = val.replace(/[^0-9.]/g, ''); 
   return cleaned === '' ? null : parseFloat(cleaned);
@@ -331,7 +335,7 @@ Extraction Rules (Strict Compliance Required):
 CRITICAL FORMAT: Every single program must have its own ratio in brackets immediately preceding the name, separated by commas. 
 Example: '[1:1] Singapore Airlines KrisFlyer, [2:1] British Airways Executive Club, [1:2] IHG Rewards Club'
 WARNING: Accurately reflect mid-tier card ratios (e.g., HDFC Regalia Gold transferring at 2:1 to Avios) rather than defaulting to 1:1.
-3. Currency & Numbers Handling: All fee, income, and limit fields must be raw integers.
+3. Currency & Numbers Handling: All fee, income, and limit fields must be raw integers. If a limit (like lounge access or golf rounds) is 'unlimited', you MUST output the number 999. Do not use the word "unlimited".
 4. Schema Integrity & SQL Limits: "airline_transfer_ratio", "hotel_transfer_ratio", and "reward_program_name" MUST BE STRICTLY UNDER 50 CHARACTERS. Output ONLY the exact keys listed below.
 5. Arrays: "partner_airlines" and "excluded_mcc" must strictly be flat arrays of strings.
 
