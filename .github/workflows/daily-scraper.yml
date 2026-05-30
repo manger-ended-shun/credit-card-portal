@@ -1,4 +1,4 @@
-name: Daily Offers Scraper
+name: Daily Offers Posts Scraper
 
 on:
   schedule:

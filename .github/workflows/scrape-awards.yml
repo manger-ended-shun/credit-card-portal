@@ -1,4 +1,4 @@
-name: Sync Award Data
+name: Sync Award Flight Data
 on:
   schedule:
     - cron: '0 2 * * *'

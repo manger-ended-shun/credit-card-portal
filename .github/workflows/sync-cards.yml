@@ -1,4 +1,4 @@
-name: Weekly Card Data Sync
+name: Card Data Sync
 
 on:
   schedule:

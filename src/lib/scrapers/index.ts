@@ -1,8 +1,20 @@
+import * as dotenv from 'dotenv';
+import * as path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { AWARD_CHARTS, Zone } from './awardCharts'; 
 
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
+// 1. Force the script to load your .env.local file for CLI execution
+dotenv.config({ path: path.resolve(__dirname, '../../../.env.local') });
+
+// 2. Use the correct Next.js environment variable names
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.error("🚨 FATAL ERROR: Missing Supabase credentials in environment variables.");
+  process.exit(1);
+}
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // ==========================================
@@ -61,10 +73,10 @@ async function runScraper() {
     { origin: 'BOM', dest: 'MEL', zone: 'australia_pacific' },
   ];
 
-// Map your internal keys to the UI labels
+  // Map your internal keys to the UI labels
   const cabins = [
     { key: 'economy', label: 'Economy' },
-    { key: 'premiumEconomy', label: 'Premium Economy' }, //  Fixed to match your interface!
+    { key: 'premiumEconomy', label: 'Premium Economy' }, // Fixed to match your interface!
     { key: 'business', label: 'Business' },
     { key: 'first', label: 'First' }
   ];
