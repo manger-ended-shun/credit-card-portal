@@ -61,10 +61,10 @@ async function runScraper() {
     { origin: 'BOM', dest: 'MEL', zone: 'australia_pacific' },
   ];
 
-  // Map your internal keys to the UI labels
+// Map your internal keys to the UI labels
   const cabins = [
     { key: 'economy', label: 'Economy' },
-    { key: 'premium_economy', label: 'Premium Economy' },
+    { key: 'premiumEconomy', label: 'Premium Economy' }, //  Fixed to match your interface!
     { key: 'business', label: 'Business' },
     { key: 'first', label: 'First' }
   ];
