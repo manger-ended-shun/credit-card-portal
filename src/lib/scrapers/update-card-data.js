@@ -49,30 +49,86 @@ function parseSafeJSON(rawStr) {
 // ==========================================
 // 1. 🛡️ THE BOUNCER: Strict AI Schema Validation
 // ==========================================
+// ==========================================
+// 1. 🛡️ THE BOUNCER: Absolute Firewall (No Passthrough)
+// ==========================================
+const cleanNumeric = (val) => {
+  if (typeof val === 'number') return val;
+  if (typeof val !== 'string') return null;
+  // Keeps numbers and decimals. Strips %, ₹, Rs, and spaces.
+  const cleaned = val.replace(/[^0-9.]/g, ''); 
+  return cleaned === '' ? null : parseFloat(cleaned);
+};
+
 const CardSchema = z.object({
   _thought_process: z.string().optional(),
   bank_name: z.string(),
   card_name: z.string(),
-  annual_fee: z.coerce.number().nullable().catch(null),
-  joining_fee: z.coerce.number().nullable().catch(null),
-  reward_cap_monthly: z.coerce.number().nullable().catch(null),
-  reward_cap_annual: z.coerce.number().nullable().catch(null),
-  statement_redemption_ratio: z.coerce.number().nullable().catch(null),
-  domestic_lounge_access: z.coerce.number().nullable().catch(null),
-  international_lounge_access: z.coerce.number().nullable().catch(null),
-  min_income_monthly: z.coerce.number().nullable().catch(null),
-  min_credit_score: z.coerce.number().nullable().catch(null),
-  point_value_paise: z.coerce.number().nullable().catch(null),
-  miles_value_paise: z.coerce.number().nullable().catch(null),
-  miles_conversion_ratio: z.coerce.number().nullable().catch(null),
-  welcome_bonus_points: z.coerce.number().nullable().catch(null),
-  welcome_spend_requirement: z.coerce.number().nullable().catch(null),
-  transfer_partners: z.string().trim().nullable().catch(null),
-  earn_base_rate: z.string().trim().nullable().catch(null),
-  earn_accelerated: z.string().trim().nullable().catch(null),
+  
+  // -- ALL POTENTIAL NUMERIC FIELDS (Scrubbed) --
+  annual_fee: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  joining_fee: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  forex_markup: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  base_reward_rate: z.preprocess(cleanNumeric, z.number().nullable().catch(null)), // Caught the 3.33% culprit!
+  points_per_100: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  statement_redemption_ratio: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  reward_cap_monthly: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  reward_cap_annual: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  reward_expiry_months: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  domestic_lounge_access: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  international_lounge_access: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  air_accident_insurance: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  lost_card_liability: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  travel_insurance: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  golf_access: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  min_income_monthly: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  min_credit_score: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  age_min: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  age_max: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  card_launch_year: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  welcome_bonus_points: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  welcome_bonus_miles: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  welcome_bonus_cashback: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  welcome_spend_requirement: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  welcome_spend_period_days: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  quarterly_spend_requirement: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  miles_conversion_ratio: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  fuel_surcharge_limit: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  purchase_protection: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+  accelerated_reward_multiplier: z.preprocess(cleanNumeric, z.number().nullable().catch(null)),
+
+  // -- BOOLEANS --
+  spend_based_lounge: z.boolean().nullable().catch(null),
+  concierge_service: z.boolean().nullable().catch(null),
+  is_popular: z.boolean().nullable().catch(null),
+  metal_card: z.boolean().nullable().catch(null),
+  upi_enabled: z.boolean().nullable().catch(null),
+  air_miles_earning: z.boolean().nullable().catch(null),
+  fuel_surcharge_waiver: z.boolean().nullable().catch(null),
+
+  // -- STRINGS --
+  card_type: z.string().nullable().catch(null),
+  card_network: z.string().nullable().catch(null),
+  card_tier: z.string().nullable().catch(null),
+  annual_fee_waiver_conditions: z.string().nullable().catch(null),
+  reward_type: z.string().nullable().catch(null),
+  base_reward_unit: z.string().nullable().catch(null),
+  earn_accelerated: z.string().nullable().catch(null),
+  earn_exclusions: z.string().nullable().catch(null),
+  transfer_partners: z.string().nullable().catch(null),
+  airline_transfer_ratio: z.string().nullable().catch(null),
+  hotel_transfer_ratio: z.string().nullable().catch(null),
+  best_use: z.string().nullable().catch(null),
+  worst_use: z.string().nullable().catch(null),
+  lounge_program: z.string().nullable().catch(null),
+  movie_benefits: z.string().nullable().catch(null),
+  dining_discounts: z.string().nullable().catch(null),
+  welcome_offer_end_date: z.string().nullable().catch(null),
+
+  // -- ARRAYS --
   partner_airlines: z.array(z.string()).nullable().catch(null),
   excluded_mcc: z.array(z.string()).nullable().catch(null)
-}).passthrough(); // Allows other unlisted string fields to pass unharmed
+}); // Removed .passthrough() completely.
 
 // ==========================================
 // 2. 🛟 THE SAFETY NET: Graceful API/DB Retries
