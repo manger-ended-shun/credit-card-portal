@@ -6,6 +6,7 @@ export interface AwardRate {
   premiumEconomy: number;
   business: number;
   first: number;
+  taxes?: number; 
   tags: { text: string; color: 'green' | 'blue' | 'amber' }[];
   description: string;
 }
