@@ -327,7 +327,10 @@ Extraction Rules (Strict Compliance Required):
    - Identify the base annual fee.
    - Actively search the text for lounge access counts, golf limits, and minimum monthly income.
    - Identify the EXHAUSTIVE list of individual transfer partners.
-2. Transfer Partners (INTERNAL KNOWLEDGE OVERRIDE): In the "transfer_partners" field, DO NOT write "16 airline partners". If the live web text provides a generic summary (or is missing the data entirely), YOU MUST OVERRIDE IT and list ALL specific airline and hotel names (e.g., all 20 for HSBC Premier/Travel One) along with their exact transfer ratios. Format strictly as: 'Airlines (1:1): Air Canada, British Airways... | Hotels (1:1): IHG, Wyndham...'
+2. Transfer Partners (INTERNAL KNOWLEDGE OVERRIDE): In the "transfer_partners" field, DO NOT write a generic summary like "16 airline partners" or group them together. If the live web text provides a generic summary, YOU MUST OVERRIDE IT and list EACH individual airline and hotel name explicitly paired with its exact transfer ratio. 
+CRITICAL FORMAT: Every single program must have its own ratio in brackets immediately preceding the name, separated by commas. 
+Example: '[1:1] Singapore Airlines KrisFlyer, [2:1] British Airways Executive Club, [1:2] IHG Rewards Club'
+WARNING: Accurately reflect mid-tier card ratios (e.g., HDFC Regalia Gold transferring at 2:1 to Avios) rather than defaulting to 1:1.
 3. Currency & Numbers Handling: All fee, income, and limit fields must be raw integers.
 4. Schema Integrity & SQL Limits: "airline_transfer_ratio", "hotel_transfer_ratio", and "reward_program_name" MUST BE STRICTLY UNDER 50 CHARACTERS. Output ONLY the exact keys listed below.
 5. Arrays: "partner_airlines" and "excluded_mcc" must strictly be flat arrays of strings.
