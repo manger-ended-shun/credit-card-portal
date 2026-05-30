@@ -5,10 +5,32 @@ const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// ==========================================
+// DYNAMIC FLIGHT TAX ESTIMATOR (IN INR)
+// ==========================================
+function estimateFlightTaxes(zone: Zone, flightClass: string): string {
+  let baseTax = 0;
+
+  switch (zone) {
+    case 'domestic_india': baseTax = 1200; break;
+    case 'south_asia': baseTax = 3500; break;
+    case 'middle_east_africa': baseTax = 5000; break;
+    case 'australia_pacific': baseTax = 7500; break;
+    case 'europe': baseTax = 14000; break;
+    case 'north_america': baseTax = 10000; break;
+    default: baseTax = 4000;
+  }
+
+  if (flightClass === 'Business') baseTax = Math.floor(baseTax * 1.8);
+  else if (flightClass === 'First') baseTax = Math.floor(baseTax * 2.5);
+  else if (flightClass === 'Premium Economy') baseTax = Math.floor(baseTax * 1.3);
+
+  return `₹${baseTax.toLocaleString('en-IN')}`;
+}
+
 async function runScraper() {
-  console.log("Starting Award Chart Sync...");
+  console.log("🚀 Starting Award Chart Sync...");
   
-  // The fully expanded list of popular routes
   const routes: { origin: string, dest: string, zone: Zone }[] = [
     { origin: 'DEL', dest: 'BOM', zone: 'domestic_india' },
     { origin: 'DEL', dest: 'BLR', zone: 'domestic_india' },
@@ -39,34 +61,52 @@ async function runScraper() {
     { origin: 'BOM', dest: 'MEL', zone: 'australia_pacific' },
   ];
 
+  // Map your internal keys to the UI labels
+  const cabins = [
+    { key: 'economy', label: 'Economy' },
+    { key: 'premium_economy', label: 'Premium Economy' },
+    { key: 'business', label: 'Business' },
+    { key: 'first', label: 'First' }
+  ];
+
   for (const route of routes) {
     for (const [airline, zones] of Object.entries(AWARD_CHARTS)) {
       const data = zones[route.zone];
-      
-      // Skip if data is undefined or if the airline doesn't operate this route (points = 0)
-      if (!data || data.economy === 0) continue;
+      if (!data) continue;
 
-      const payload = {
-        origin: route.origin,
-        dest: route.dest,
-        flight_class: 'Economy',
-        partner: data.partner,
-        program: data.program,
-        ratio: data.ratio,
-        points: data.economy.toString(),
-        taxes: '₹2000', 
-        description: data.description,
-        tags: JSON.stringify(data.tags)
-      };
+      // Dynamically loop through every cabin class available in your chart
+      for (const cabin of cabins) {
+        const points = data[cabin.key as keyof typeof data];
+        
+        // Skip if this specific airline doesn't have points listed for this cabin
+        if (!points || typeof points !== 'number' || points === 0) continue;
 
-      const { error } = await supabase.from('flight_routes').upsert(payload, { 
-        onConflict: 'origin,dest,flight_class,partner' 
-      });
-      
-      if (error) console.error(`Error syncing ${airline} for ${route.origin}-${route.dest}:`, error);
+        const payload = {
+          origin: route.origin,
+          dest: route.dest,
+          flight_class: cabin.label,
+          partner: data.partner,
+          program: data.program,
+          ratio: data.ratio,
+          points: points.toString(),
+          taxes: data.taxes !== undefined 
+            ? `₹${data.taxes.toLocaleString('en-IN')}` 
+            : estimateFlightTaxes(route.zone, cabin.label), 
+          description: data.description || '',
+          tags: JSON.stringify(data.tags || [])
+        };
+
+        const { error } = await supabase.from('flight_routes').upsert(payload, { 
+          onConflict: 'origin,dest,flight_class,partner' 
+        });
+        
+        if (error) {
+          console.error(`⚠️ Database Error syncing ${airline} ${cabin.label} (${route.origin}-${route.dest}):`, error.message);
+        }
+      }
     }
   }
-  console.log("Sync complete.");
+  console.log("✅ Sync complete.");
 }
 
 runScraper();
